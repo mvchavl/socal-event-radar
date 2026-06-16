@@ -1,0 +1,52 @@
+[
+  {
+    "name": "Hard Summer",
+    "dates": ["2026-08-01", "2026-08-02"],
+    "location": "Los Angeles, CA",
+    "lat": 34.0522,
+    "lng": -118.2437,
+    "genre": ["hard techno", "techno", "house", "underground"],
+    "url": "https://hardsummer.com",
+    "artist_watch": ["Gesaffelstein", "Boys Noize", "Justice", "AMERICANRECYCLING", "crushh"]
+  },
+  {
+    "name": "CRSSD Festival",
+    "dates": [],
+    "location": "San Diego, CA",
+    "lat": 32.7157,
+    "lng": -117.1611,
+    "genre": ["techno", "house", "dark electronic"],
+    "url": "https://crssdfest.com",
+    "artist_watch": []
+  },
+  {
+    "name": "Day Trip",
+    "dates": [],
+    "location": "San Bernardino, CA",
+    "lat": 34.1083,
+    "lng": -117.2898,
+    "genre": ["house", "tech house", "deep house"],
+    "url": "https://daytripfestival.com",
+    "artist_watch": []
+  },
+  {
+    "name": "Nocturnal Wonderland",
+    "dates": [],
+    "location": "San Bernardino, CA",
+    "lat": 34.1083,
+    "lng": -117.2898,
+    "genre": ["trance", "house", "techno", "bass"],
+    "url": "https://nocturnalwonderland.com",
+    "artist_watch": []
+  },
+  {
+    "name": "Beyond Wonderland",
+    "dates": [],
+    "location": "San Bernardino, CA",
+    "lat": 34.1083,
+    "lng": -117.2898,
+    "genre": ["trance", "house", "techno"],
+    "url": "https://beyondwonderland.com",
+    "artist_watch": []
+  }
+]

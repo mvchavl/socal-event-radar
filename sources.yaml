@@ -1,0 +1,121 @@
+# SoCal Event Radar — source registry
+# tiers:  A=real API  B=static HTML/RSS/ICS  C=JS-app/best-effort  D=manual/social
+# status: active=parser implemented & pulling   key=works when API key added
+#         degraded=blocks datacenter IPs (works from residential/CI)   watch=manual/social only
+# Non-active rows are exported to public/sources.json as planned, best_effort, or manual.
+# Add a source: drop it here, then add/extend a parser in collector/parsers/ and register it in collect.js.
+
+active_parsers:            # these run in `npm run collect` today
+  - { name: 19hz,              tier: B, type: html,    status: active,   region: SoCal, url: "https://19hz.info/eventlisting_LosAngeles.php", note: "Backbone. ~500 events, densest underground-aware source." }
+  - { name: Eventbrite,        tier: C, type: html,    status: active,   region: SoCal, url: "https://www.eventbrite.com/d/ca--los-angeles/", note: "General: pop-ups, workshops, networking, art, markets, community, free events." }
+  - { name: lu.ma,             tier: C, type: html,    status: active,   region: LA,    url: "https://lu.ma/los-angeles", note: "Tech/startup/creative/professional/social mixers — high signal for career + meeting people." }
+  - { name: Libraries,         tier: B, type: html,    status: active,   region: SoCal, url: "https://visit.lacountylibrary.org/events + lapl.org", note: "Wholesome, free, community, workshops, talks, Silver Lake / local branch events." }
+  - { name: Resident Advisor,  tier: C, type: graphql, status: active,   region: LA,    url: "https://ra.co/events/us/losangeles", note: "Area 23. Auto-captures most collectives (Hood Rave, Sirens, Perfect Dark, Por Detroit, Observe, Respect DnB, WORK...)." }
+  - { name: EDM Calendars,     tier: B, type: html,    status: active,   region: SoCal, url: "https://edmcalendar.com/edm-event-calendar/southern-california/", note: "edmcalendar + electronicmidwest festival rows (best-effort)." }
+  - { name: Editorial RSS,     tier: B, type: rss,     status: active,   region: LA,    url: "https://ravenewworld.substack.com/feed", note: "Rave New World intel; add more /feed/ urls in parsers/rss.js." }
+  - { name: Ticketmaster,      tier: A, type: api,     status: key,      region: SoCal, url: "https://app.ticketmaster.com/discovery/v2/", note: "Free TM_API_KEY. Covers TM + TicketWeb + Universe + FrontGate + TMR. DMA 324 (LA) + 825 (SD)." }
+  - { name: SeatGeek,          tier: A, type: api,     status: key,      region: SoCal, url: "https://platform.seatgeek.com/", note: "Free SEATGEEK_CLIENT_ID. Concerts by city; includes coords." }
+  - { name: Bandsintown,       tier: A, type: api,     status: key,      region: SoCal, url: "https://rest.bandsintown.com/", note: "Free BIT_APP_ID. Tracks your DJ watchlist in data/artists.json." }
+  - { name: Tixr,              tier: C, type: spa,     status: degraded, region: SoCal, url: "https://www.tixr.com/", note: "Exchange/Academy/Avalon/Time/Nova/Day Trip groups. 403s datacenter IPs; works residential/CI." }
+  - { name: r/avesLA,          tier: B, type: rss,     status: degraded, region: SoCal, url: "https://www.reddit.com/r/avesLA/", note: "Reddit blocks datacenter IPs; CI/residential OK." }
+  - { name: Manual,            tier: D, type: manual,  status: active,   region: SoCal, url: "data/manual_events.json", note: "Hand-entered IG/Discord/SMS/flyer drops." }
+  - { name: Partiful,          tier: C, type: html,    status: best_effort, region: SoCal, url: "https://partiful.com/", note: "Public Partiful pages only. Re-checks manual Partiful URLs." }
+  - { name: DICE,              tier: C, type: html,    status: best_effort, region: SoCal, url: "https://dice.fm/browse/los-angeles", note: "LA electronic/underground events on DICE." }
+
+# ---- add-with-key / add-a-parser (Tier A & C) ----
+ticketing_discovery:
+  - { name: DICE,        tier: C, type: spa,  url: "https://dice.fm/browse/los-angeles", note: "Internal JSON endpoints exist; add parser." }
+  - { name: Posh,        tier: C, type: spa,  url: "https://posh.vip/", note: "Underground/warehouse/afters core. Reverse-engineer endpoints or Playwright." }
+  - { name: Shotgun,     tier: C, type: spa,  url: "https://shotgun.live/", note: "Club + festival. API-ish endpoints." }
+  - { name: AXS,         tier: C, type: spa,  url: "https://www.axs.com/", note: "Goldenvoice/AEG box office (Fonda, El Rey, Regent, Echo, Greek, Teragram, Moroccan). No public API." }
+  - { name: Eventbrite,  tier: C, type: spa,  url: "https://www.eventbrite.com/d/ca--los-angeles/edm--electronic/", note: "Public search API deprecated 2020. Scrape organizer pages or skip." }
+  - { name: See Tickets US, tier: C, type: spa, url: "https://www.seetickets.us/", note: "" }
+  - { name: Songkick,    tier: A, type: api,  url: "https://www.songkick.com/developer", note: "Requires key approval. Metro listings." }
+  - { name: Slingshot,   tier: B, type: spa,  url: "https://slingshot.events/", note: "Planned. SoCal ticketing." }
+  - { name: Meetup LA,   tier: B, type: api,  url: "https://www.meetup.com/find/?location=Los%20Angeles", note: "Planned. Community events." }
+
+# ---- promoters / festival producers (Tier B/C — many also surface via RA) ----
+promoters:
+  - { name: Insomniac,        url: "https://www.insomniac.com/events/los-angeles-ca/", note: "HARD Summer, EDC, Beyond/Nocturnal Wonderland, Dreamstate, Bassrush, Basscon, Factory 93, Day Trip, Audiotistic, Escape Halloween, Countdown NYE. Runs Exchange + Academy." }
+  - { name: HARD Summer,      url: "https://www.hardsummer.com/", note: "Aug 1-2 2026, Hollywood Park." }
+  - { name: Factory 93,       url: "https://www.insomniac.com/brand/factory-93/", note: "Insomniac techno warehouse. On-brand." }
+  - { name: Goldenvoice,      url: "https://www.goldenvoice.com/", note: "Coachella + LA theatres + Cruel World (goth/industrial), Just Like Heaven, This Ain't No Picnic. Tix via AXS." }
+  - { name: Framework,        url: "https://thisisframework.com/", note: "LA's top underground house/techno; Sound Nightclub resident. Try /feed/." }
+  - { name: 6AM Group,        url: "https://6amgroup.com/articles/events-all", note: "Techno events + news hub + Discord." }
+  - { name: Brownies & Lemonade, url: "https://browniesandlemonade.com/", note: "Bass/hyperpop/genre-blur + festival." }
+  - { name: Space Yacht,      url: "https://spaceyacht.com/", note: "House/EDM tastemaker, free-RSVP weeklies." }
+  - { name: Dirty Epic,       url: "https://dirtyepic.com/", note: "Techno; email list." }
+  - { name: Restless Nites,   url: "https://restlessnites.com/", note: "Dark/industrial/EBM/queer avant-garde; Das Bunker + Substance. On-brand." }
+  - { name: Das Bunker / LA Industrial, url: "https://laindustrial.org/", note: "Industrial/goth/EBM legacy. On-brand." }
+  - { name: Minimal Effort,   url: "https://minimaleffort.tv/", note: "Techno NYE/warehouse." }
+  - { name: Desert Hearts,    url: "https://desertheartsmusic.com/", note: "House/techno campout + city shows." }
+  - { name: Dirtybird,        url: "https://dirtybirdrecords.com/", note: "Campout + Claude VonStroke/Boys Noize-adjacent." }
+  - { name: Splash House,     url: "https://splashhouse.com/", note: "Palm Springs pool fest, Aug 7-9 & 14-16 2026. House/disco." }
+  - { name: CRSSD / FNGRS CRSSD, url: "https://crssdfest.com/", note: "SD house/techno fest + Proper/Group club events." }
+  - { name: Head in the Clouds, url: "https://headinthecloudsfestival.com/", note: "88rising, LA." }
+  - { name: I Luv Incognito,  url: "https://iluvincognito.com/", note: "Label showcases (Tresor etc.), purist techno." }
+  - { name: Boiler Room,      url: "https://boilerroom.tv/", note: "Occasional LA events/streams." }
+  - { name: A Club Called Rhonda, url: "https://ra.co/promoters/7701", note: "Queer house institution (via RA)." }
+  - { name: Lights Down Low,  url: "https://www.instagram.com/lights_down_low/", note: "House/techno/indie crossover (RA + IG)." }
+  - { name: Sunday Sessions,  url: "https://www.sundaysessions.la/", note: "Vinyl open-air day parties." }
+  - { name: Respect DnB,      url: "https://ra.co/promoters/respect", note: "Longest-running US DnB weekly, Jungle Hollywood (via RA)." }
+
+# ---- underground collectives — mostly Tier D; tracked via RA pull + IG watchlist ----
+underground_watchlist:
+  techno_house: [Observe (Droid Behavior), Into The Woods, RE/FORM, WORK / Synthetik Minds, Certified Groovers, Midnight Lovers, We Own The Night, Sound Of Symmetry]
+  bass_dnb:     [Respect DnB, B.side, System Error, Momentive, Bass Waffles, Good Society, Oblivion]
+  queer_avant:  [Por Detroit, Ostbahnhof, Bears in Space, Pegasus, Perfect Dark, Tunnel / Floorgasm, Hood Rave, Another Castle, If You Know You Know]
+  warehouse_afters: [Subculture (subcultureparty.com), Blind Tiger (blindtiger.la), Control Room LA, Subterranean Dwellers, We Love Kandy SoCal]
+  flag_low_confidence: [Lick N Dip, SXTCY, Code Red, Fever]   # high-volume free-RSVP "TikTok techno"; include but flag
+  note: "These rarely post public calendars. Most ALSO list on Resident Advisor → captured by the RA parser. Keep IG handles for day-of address drops."
+
+# ---- student / UCLA (transfer-relevant) ----
+student:
+  - { name: DAW at UCLA,        url: "https://daw.digital/", note: "Student electronic-music org; underground-leaning campus/house shows. Also RA + @dawatucla." }
+  - { name: CAP UCLA,           url: "https://cap.ucla.edu/calendar/", note: "Experimental/electronic programming." }
+  - { name: UCLA Herb Alpert,   url: "https://schoolofmusic.ucla.edu/calendar/", note: "" }
+  - { name: Cypress College,    url: "https://www.cypresscollege.edu/", note: "Local to you now." }
+
+# ---- aggregators / editorial / festival trackers (Tier B) ----
+aggregators_editorial:
+  - { name: EDMTrain,        url: "https://edmtrain.com/los-angeles-ca", note: "Community-curated; internal JSON — add parser." }
+  - { name: The LA Raver,    url: "https://thelaraver.com/", note: "Rave itineraries + newsletter." }
+  - { name: DoLA,            url: "https://dola.com/", note: "DoStuff network concert calendar." }
+  - { name: Time Out LA,     url: "https://www.timeout.com/los-angeles/music", note: "" }
+  - { name: LA Weekly,       url: "https://www.laweekly.com/", note: "" }
+  - { name: Discover LA,     url: "https://www.discoverlosangeles.com/events", note: "Mainstream/festivals." }
+  - { name: LAist,           url: "https://laist.com/events", note: "" }
+  - { name: KCRW,            url: "https://www.kcrw.com/events", note: "Curated/free park + museum shows." }
+  - { name: Secret LA,       url: "https://secretlosangeles.com/", note: "" }
+  - { name: Oh My Rockness,  url: "https://www.ohmyrockness.com/shows?city=los-angeles", note: "Indie/alt; JSON feed." }
+  - { name: The Scenestar,   url: "https://www.thescenestar.com/", note: "" }
+  - { name: Music Festival Wizard, url: "https://www.musicfestivalwizard.com/festival-genre/electronic/", note: "Festival DB." }
+  - { name: CalendarX,       url: "https://www.calendarx.com/schedule/edm-festivals-in-the-us", note: "Subscribable ICS — pull + filter SoCal." }
+  - { name: Beatportal,      url: "https://www.beatportal.com/", note: "Living 'CA Dance/Electronic Festivals' tracker." }
+  - { name: "Mixmag / DJ Mag / EDM.com / Dancing Astronaut / EARMILK", url: "https://mixmag.net/", note: "RSS each; lineup/festival announcements." }
+
+# ---- manual / social watchlist (no scraping of private content) ----
+social_watchlist:
+  instagram: ["@thelaraver","@welovekandysocal","@l_lnderground","@globaldanceelectronic","@scee_13","@lights_down_low","@eviesomewhere","@10cust","@hoodrave","@sirens_la","@frameworkla","@6amgroup","@browniesandlemonade","@spaceyacht","@dawatucla","+ every promoter & venue below"]
+  discord:   ["6AM Group","The LA Raver","House of PLUR","r/avesLA"]
+  telegram_whatsapp_sms: ["per-crew, invite/text-to-join (The Spotlight, Control Room, etc.) — notes only"]
+  apps:      ["Radiate (radiatetheworld.com)", "Meetup LA"]
+
+# ---- venues (most route to Tixr/Dice/TM/AXS; scrape independents directly) ----
+venues:
+  la_independent: ["Sound Nightclub (soundnightclub.com)","Exchange LA (exchangela.com)","Academy LA (academy.la)","Catch One (catchonela.com)","1720 (1720.la)","Los Globos (clublosglobos.com)","Zebulon (zebulon.la)","El Cid (elcidla.com)","2220 Arts + Archives (2220arts.org)","Coaxial (coaxialarts.org)","Gold Diggers (golddiggers.la)","Lodge Room (lodgeroomhlp.com)","The Echo/Echoplex (theecho.com)","The Spotlight","The Virgil","Apotheke"]
+  la_via_api: ["The Wiltern","The Novo","Hollywood Palladium","The Regent","Fonda Theatre","El Rey","Teragram Ballroom","Moroccan Lounge","The Belasco","Greek Theatre","Hollywood Bowl","Avalon Hollywood","The Roxy"]
+  orange_county: ["Time Nightclub (→Tixr)","The Observatory OC","Constellation Room","Garden Amp (gardenamp.com)","The Circle OC","Yost Theater"]
+  san_diego: ["Nova SD (→Tixr)","Bloom (bloomsd.com)","Spin Nightclub","Music Box (musicboxsd.com)","Quartyard","3Oz Dive Club","The Sound","Observatory North Park"]
+  festival_grounds: ["NOS Events Center","Queen Mary (Long Beach)","Glen Helen Regional Park","Lake Perris","Empire Polo Club","Waterfront Park SD","Palm Springs Air Museum","San Manuel Amphitheater"]
+
+# ---- NEW: general / non-music expansion (full-spectrum SoCal command center) ----
+general_non_music:
+  items:
+    - Eventbrite (general pop-ups, workshops, networking, art, markets, community)
+    - lu.ma (tech, AI, startup, creative, professional, social mixers)
+    - LA County Library + LA Public Library (wholesome free events, talks, workshops)
+    - Universities (Cypress College, UCLA, USC, CSULB public calendars)
+    - LA Chamber of Commerce + business networking
+    - Art institutions & gallery districts (Hammer, MOCA, Getty, Arts District via Eventbrite/lu.ma + direct)
+  note: "These wire the 'wholesome Silver Lake library workshop' + 'tech quant networking' + 'career fair' side of the radar while keeping the music/underground core elite."

@@ -1,0 +1,12 @@
+{
+  "name": "SoCal Event Radar",
+  "short_name": "Radar",
+  "description": "Every SoCal music/nightlife event, underground to mainstage — 19hz-style.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0c0c0d",
+  "theme_color": "#0c0c0d",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

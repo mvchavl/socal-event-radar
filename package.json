@@ -1,0 +1,19 @@
+{
+  "name": "socal-event-radar",
+  "version": "1.0.0",
+  "description": "Full-spectrum SoCal command center: underground raves + HARD Summer + secret afters + tech/AI/quant meetups + career networking + wholesome library/community events + art + everything in between. 19hz-style dense radar with 50+ sources, categories, presets, map, PWA, hourly auto-update.",
+  "type": "commonjs",
+  "scripts": {
+    "collect": "node collector/collect.js",
+    "dev": "node collector/serve.js",
+    "build": "node collector/collect.js",
+    "validate": "node collector/validate.js",
+    "venues:unmapped": "node collector/unmapped-venues.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "js-yaml": "^4.1.0",
+    "node-ical": "^0.20.1",
+    "rss-parser": "^3.13.0"
+  }
+}

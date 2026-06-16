@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#070c0e">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<title>SoCal Event Radar</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="style.css?v=20260615b">
+</head>
+<body>
+<header>
+  <div class="bar1">
+    <b>SoCal Event Radar</b>
+    <span class="stat" id="stat-updated">loading…</span>
+    <span class="stat">events <strong id="stat-count">0</strong></span>
+    <span class="stat">shown <strong id="stat-shown">0</strong></span>
+    <span class="stat">sources <strong id="stat-src">0</strong></span>
+    <span class="stat">tonight <strong id="stat-tonight">0</strong></span>
+    <span class="stat">my network <strong id="stat-network">0</strong></span>
+    <span class="stat">underground <strong id="stat-ug">0</strong></span>
+    <span style="flex:1"></span>
+    <button class="btn" id="btn-map">Map</button>
+    <button class="btn" id="btn-manual">Manual Inbox</button>
+    <button class="btn" id="btn-history">History</button>
+    <button class="btn" id="btn-scene">Scene</button>
+    <button class="btn" id="btn-venues">Venues</button>
+    <button class="btn" id="btn-theme">Light/Dark</button>
+    <button class="btn" id="btn-share-tonight">Share Tonight</button>
+    <button class="btn" id="btn-export">Export .ics</button>
+  </div>
+  <div class="controls">
+    <input type="search" id="q" placeholder="search title / artist / venue / promoter / genre…">
+    <span class="chip" data-range="tonight">Tonight</span>
+    <span class="chip" data-range="weekend">This Weekend</span>
+    <span class="chip" data-range="7d">7 days</span>
+    <span class="chip" data-range="30d">30 days</span>
+    <input type="date" id="from" title="from">
+    <input type="date" id="to" title="to">
+    <select id="region"><option value="">all regions</option></select>
+    <select id="genre"><option value="">all genres</option></select>
+    <select id="source"><option value="">all sources</option></select>
+    <select id="sort">
+      <option value="soon">soonest</option>
+      <option value="foryou">for you</option>
+      <option value="new">newly added</option>
+      <option value="venue">venue</option>
+      <option value="conf">confidence</option>
+    </select>
+    <span class="chip" data-flag="is_underground">Underground</span>
+    <span class="chip" data-flag="is_afterhours">Afters</span>
+    <span class="chip" data-flag="is_free_rsvp">Free</span>
+    <span class="chip" data-flag="is_tba_location">TBA/Warehouse</span>
+    <span class="chip" data-flag="is_manual">Manual</span>
+    <span class="chip" data-flag="new">New Drops</span>
+    <span class="chip" data-flag="is_festival">Festival</span>
+    <span class="chip" data-flag="my_network_match">My Network</span>
+    <span class="chip" data-flag="watched">Watched</span>
+    <span class="chip" data-flag="going">Going</span>
+    <span class="chip" data-flag="saved">★ Saved</span>
+    <span class="chip" data-age="18+">18+</span>
+    <span class="chip" data-age="all ages">All ages</span>
+    <button class="btn" id="btn-reset">reset</button>
+  </div>
+</header>
+
+<section id="manual-panel" class="manual-panel" hidden>
+  <div class="manual-inbox">
+    <textarea id="manual-input" placeholder="paste flyer / caption / Discord / SMS / Partiful link"></textarea>
+    <div class="manual-actions">
+      <button class="btn" id="manual-parse">Parse preview</button>
+      <button class="btn" id="manual-save">Save local</button>
+      <button class="btn" id="manual-copy">Copy JSON</button>
+      <button class="btn" id="manual-download">Download JSON</button>
+      <button class="btn" id="manual-clear">Clear local</button>
+      <button class="btn" id="manual-save-file" style="display:none">Save to file</button>
+      <span class="stat" id="manual-status"></span>
+    </div>
+  </div>
+  <div id="manual-preview" class="manual-preview" hidden>
+    <label>title<input id="manual-title"></label>
+    <label>date<input id="manual-date" type="date"></label>
+    <label>start<input id="manual-start-time" placeholder="11pm"></label>
+    <label>end<input id="manual-end-time" placeholder="5am"></label>
+    <label>venue<input id="manual-venue"></label>
+    <label>city<input id="manual-city"></label>
+    <label>price<input id="manual-price"></label>
+    <label>age<input id="manual-age"></label>
+    <label>genres<input id="manual-genres" placeholder="hard techno, dnb"></label>
+    <label>promoter<input id="manual-promoter"></label>
+    <label>source<input id="manual-source-url" placeholder="https://..."></label>
+    <label>lat<input id="manual-lat" inputmode="decimal"></label>
+    <label>lng<input id="manual-lng" inputmode="decimal"></label>
+    <label class="manual-check"><input id="manual-needs-review" type="checkbox"> needs review</label>
+  </div>
+  <textarea id="manual-export" class="manual-export" readonly hidden></textarea>
+</section>
+
+<section id="history-panel" class="history-panel" hidden>
+  <div class="history-header">
+    <span class="stat">events attended: <strong id="history-count">0</strong></span>
+    <button class="btn" id="history-export">Export CSV</button>
+  </div>
+  <div id="history-list"></div>
+</section>
+
+<section id="scene-panel" class="scene-panel" hidden>
+  <h3 style="margin:0 0 8px;font-size:13px;color:var(--ug)">COLLECTIVE ACTIVITY</h3>
+  <div id="scene-collectives"></div>
+</section>
+
+<section id="venue-panel" class="venue-panel" hidden>
+  <h3 style="margin:0 0 8px;font-size:13px;color:var(--fest)">VENUE HEAT MAP</h3>
+  <div id="venue-list"></div>
+</section>
+
+<div id="promoter-panel" class="promoter-panel" hidden>
+  <div class="promoter-header">
+    <b id="promoter-name"></b>
+    <span id="promoter-badge" style="display:none" class="badge b-ug">★ FOLLOWED</span>
+    <button class="btn" onclick="document.getElementById('promoter-panel').hidden=true">✕</button>
+  </div>
+  <div id="promoter-events"></div>
+</div>
+
+<div id="artist-tooltip" class="artist-tooltip" hidden></div>
+
+<div id="map"></div>
+<div class="note" id="hidden-note" style="display:none"></div>
+
+<main>
+  <table id="tbl">
+    <thead><tr>
+      <th data-sk="date">Date / Time</th>
+      <th data-sk="title">Event / Artists</th>
+      <th data-sk="venue">Venue</th>
+      <th data-sk="region">City</th>
+      <th>Genre</th>
+      <th>Price / Age</th>
+      <th>Src</th>
+      <th></th>
+    </tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+</main>
+
+<footer>
+  <div>
+    <span id="foot-summary"></span>
+    &nbsp;·&nbsp; <a href="#" id="toggle-sources">source health ▾</a>
+    &nbsp;·&nbsp; <span id="hidden-count"></span> <a href="#" id="unhide">un-hide all</a>
+  </div>
+  <div id="sources"></div>
+  <div id="watchlist-digest" style="margin-top:8px;font-size:11px"></div>
+  <div style="margin-top:6px;color:var(--mut)">
+    Add warehouse / IG / Discord drops by editing <code>data/manual_events.json</code> and re-running the collector.
+    Underground collectives mostly surface via the Resident Advisor pull; day-of address drops live on Instagram (watchlist in <code>sources.yaml</code>).
+  </div>
+</footer>
+
+<script src="app.js?v=20260615b"></script>
+</body>
+</html>

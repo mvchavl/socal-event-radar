@@ -411,16 +411,13 @@ function updateTonightStats() {
 const ALL_CATS = ['music','underground','festival','afterhours','tech','career','networking','ai','quant','art','gallery','community','library','wholesome','free','social','mixer','wellness','pop-up','market','education','university','professional','business','outdoor'];
 
 function initCategoryChips() {
-  // inject a categories row if not present
   let catRow = $('#cat-row');
   if (!catRow) {
     catRow = document.createElement('div');
     catRow.id = 'cat-row';
-    catRow.className = 'controls';
-    catRow.style.marginTop = '4px';
-    catRow.innerHTML = '<span style="margin-right:6px;opacity:.7">cats:</span>';
-    const controls = $('.controls');
-    if (controls) controls.parentNode.insertBefore(catRow, controls.nextSibling);
+    catRow.className = 'controls cat-row';
+    const mount = $('#header-panels') || document.querySelector('header');
+    if (mount) mount.appendChild(catRow);
   }
   const container = $('#cat-row');
   container.querySelectorAll('.cat-chip').forEach(el => el.remove());
@@ -445,9 +442,11 @@ function initPresets() {
   if (!presetBar) {
     presetBar = document.createElement('div');
     presetBar.id = 'preset-bar';
-    const header = document.querySelector('header');
-    if (header) header.appendChild(presetBar);
+    presetBar.className = 'preset-bar';
+    const mount = $('#header-panels') || document.querySelector('header');
+    if (mount) mount.appendChild(presetBar);
   }
+  presetBar.replaceChildren();
 
   const presets = [
     { label: 'Underground Pulse', fn: () => { STATE.categories = new Set(['music','underground','afterhours','festival']); STATE.flags.add('is_underground'); } },
@@ -598,18 +597,86 @@ function isMobileLayout() {
   return window.matchMedia('(max-width: 700px)').matches;
 }
 
-function actionButtons(e) {
+const DrawerUI = {
+  active: null,
+
+  toggle(name) {
+    if (this.active === name) this.close();
+    else this.open(name);
+  },
+
+  open(name) {
+    if (!isMobileLayout()) return;
+    this.active = name || null;
+    this.sync();
+  },
+
+  close() {
+    this.active = null;
+    this.sync();
+  },
+
+  sync() {
+    const open = !!this.active;
+    document.body.classList.toggle('mobile-drawer-open', open);
+    const root = $('#drawer-root');
+    if (root) {
+      root.classList.toggle('is-active', open);
+      root.setAttribute('aria-hidden', open ? 'false' : 'true');
+    }
+    const backdrop = $('#drawer-backdrop');
+    if (backdrop) backdrop.classList.toggle('is-visible', open);
+    for (const id of ['filters', 'presets', 'more']) {
+      const sheet = $(`#drawer-${id}`);
+      const btn = $(`.mob-drawer-btn[data-drawer="${id}"]`);
+      const isOpen = this.active === id;
+      sheet?.classList.toggle('is-open', isOpen);
+      sheet?.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+      btn?.classList.toggle('is-active', isOpen);
+      btn?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    }
+  },
+};
+
+function relocateDrawerPanels() {
+  const mobile = isMobileLayout();
+  const headerPanels = $('#header-panels');
+  const filtersBody = $('#drawer-filters-body');
+  const presetsBody = $('#drawer-presets-body');
+  const filters = $('#filters-drawer');
+  const catRow = $('#cat-row');
+  const presetBar = $('#preset-bar');
+  if (!headerPanels || !filtersBody || !presetsBody || !filters) return;
+
+  if (mobile) {
+    if (filters.parentElement !== filtersBody) filtersBody.appendChild(filters);
+    if (catRow && catRow.parentElement !== filtersBody) filtersBody.appendChild(catRow);
+    if (presetBar && presetBar.parentElement !== presetsBody) presetsBody.appendChild(presetBar);
+    DrawerUI.close();
+  } else {
+    if (filters.parentElement !== headerPanels) headerPanels.insertBefore(filters, headerPanels.firstChild);
+    if (catRow && catRow.parentElement !== headerPanels) headerPanels.appendChild(catRow);
+    if (presetBar && presetBar.parentElement !== headerPanels) headerPanels.appendChild(presetBar);
+    DrawerUI.close();
+  }
+}
+
+function actionButtons(e, compactSecondary = false) {
   const sid = getEventStableId(e);
   const attended = HISTORY.some(h => h.id === e.id);
-  return `<div class="event-actions">` +
+  const primary =
     `<button type="button" class="act-btn star${SAVED.has(e.id) ? ' on' : ''}" data-save="${e.id}" aria-label="Save"><span aria-hidden="true">★</span><span class="act-lbl">save</span></button>` +
     `<button type="button" class="act-btn going${GOING.has(e.id) ? ' on' : ''}" data-going="${e.id}" aria-label="Going"><span aria-hidden="true">▶</span><span class="act-lbl">going</span></button>` +
     `<button type="button" class="act-btn share" data-share="${sid}" aria-label="Share"><span aria-hidden="true">⤴</span><span class="act-lbl">share</span></button>` +
-    `<button type="button" class="act-btn log" data-log="${sid}" aria-label="Log show"><span aria-hidden="true">✎</span><span class="act-lbl">log</span></button>` +
-    `<button type="button" class="act-btn attend${attended ? ' done' : ''}" data-attend="${e.id}" aria-label="Attended"><span aria-hidden="true">✓</span><span class="act-lbl">went</span></button>` +
-    `<button type="button" class="act-btn cal" data-cal="${e.id}" aria-label="Calendar"><span aria-hidden="true">⤓</span><span class="act-lbl">cal</span></button>` +
-    `<button type="button" class="act-btn hide" data-hide="${e.id}" aria-label="Hide"><span aria-hidden="true">✕</span><span class="act-lbl">hide</span></button>` +
-    `</div>`;
+    `<button type="button" class="act-btn log" data-log="${sid}" aria-label="Log show"><span aria-hidden="true">✎</span><span class="act-lbl">log</span></button>`;
+  const secondary =
+    `<button type="button" class="act-btn compact attend${attended ? ' done' : ''}" data-attend="${e.id}" aria-label="Attended"><span aria-hidden="true">✓</span><span class="act-lbl">went</span></button>` +
+    `<button type="button" class="act-btn compact cal" data-cal="${e.id}" aria-label="Calendar"><span aria-hidden="true">⤓</span><span class="act-lbl">cal</span></button>` +
+    `<button type="button" class="act-btn compact hide" data-hide="${e.id}" aria-label="Hide"><span aria-hidden="true">✕</span><span class="act-lbl">hide</span></button>`;
+  if (compactSecondary) {
+    return `<div class="card-actions-primary">${primary}</div><div class="card-actions-secondary">${secondary}</div>`;
+  }
+  return `<div class="event-actions">${primary}${secondary}</div>`;
 }
 
 function legacyActionButtons(e) {
@@ -638,40 +705,15 @@ function syncMobileStats() {
   }
 }
 
-function closeMobileDrawers() {
-  $$('.mobile-drawer-btn').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-expanded', 'false'); });
-  $('#filters-drawer')?.classList.remove('drawer-open');
-  $('#preset-bar')?.classList.remove('drawer-open');
-  $('#cat-row')?.classList.remove('drawer-open');
-  $('#drawer-more')?.classList.remove('drawer-open');
-  const backdrop = $('#drawer-backdrop');
-  if (backdrop) { backdrop.classList.remove('open'); backdrop.hidden = true; }
-  const more = $('#drawer-more');
-  if (more) more.hidden = true;
-}
-
-function openMobileDrawer(name) {
-  closeMobileDrawers();
-  const btn = $(`.mob-drawer-btn[data-drawer="${name}"]`);
-  if (btn) { btn.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); }
-  const backdrop = $('#drawer-backdrop');
-  if (backdrop) { backdrop.hidden = false; backdrop.classList.add('open'); }
-  if (name === 'filters') {
-    $('#filters-drawer')?.classList.add('drawer-open');
-    $('#cat-row')?.classList.add('drawer-open');
-  } else if (name === 'presets') {
-    $('#preset-bar')?.classList.add('drawer-open');
-  } else if (name === 'more') {
-    const panel = $('#drawer-more');
-    if (panel) { panel.hidden = false; panel.classList.add('drawer-open'); }
-  }
-}
-
 function initMobileUI() {
+  if (window.__mobileUIReady) return;
+  window.__mobileUIReady = true;
+
   const quickIds = ['btn-map', 'btn-share-tonight', 'btn-export'];
   const moreIds = ['btn-manual', 'btn-history', 'btn-scene', 'btn-venues', 'btn-weekend', 'btn-show-log', 'btn-release'];
   const quick = $('#mobile-quick-actions');
   const more = $('#mobile-more-actions');
+
   if (quick) {
     quick.replaceChildren();
     for (const id of quickIds) {
@@ -679,7 +721,7 @@ function initMobileUI() {
       if (!src) continue;
       const clone = src.cloneNode(true);
       clone.id = `${id}-m`;
-      clone.addEventListener('click', (e) => { e.preventDefault(); src.click(); closeMobileDrawers(); });
+      clone.addEventListener('click', (e) => { e.preventDefault(); src.click(); });
       quick.appendChild(clone);
     }
   }
@@ -690,7 +732,7 @@ function initMobileUI() {
       if (!src) continue;
       const clone = src.cloneNode(true);
       clone.id = `${id}-m`;
-      clone.addEventListener('click', () => { src.click(); closeMobileDrawers(); });
+      clone.addEventListener('click', () => { src.click(); DrawerUI.close(); });
       more.appendChild(clone);
     }
     const phone = document.querySelector('a.btn[href="phone.html"]');
@@ -700,18 +742,104 @@ function initMobileUI() {
       more.appendChild(link);
     }
   }
-  $$('.mob-drawer-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const name = btn.dataset.drawer;
-      const isOpen = btn.classList.contains('on');
-      if (isOpen) closeMobileDrawers();
-      else openMobileDrawer(name);
-    });
+
+  $('#mobile-drawer-bar')?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.mob-drawer-btn[data-drawer]');
+    if (!btn) return;
+    DrawerUI.toggle(btn.dataset.drawer);
   });
-  $('#drawer-backdrop')?.addEventListener('click', closeMobileDrawers);
-  $$('[data-close-drawer]').forEach(btn => btn.addEventListener('click', closeMobileDrawers));
+  $('#drawer-backdrop')?.addEventListener('click', () => DrawerUI.close());
+  $('#drawer-root')?.addEventListener('click', (e) => {
+    if (e.target.closest('[data-drawer-close]')) DrawerUI.close();
+  });
   $('#btn-theme-m')?.addEventListener('click', toggleTheme);
-  window.addEventListener('resize', () => { if (!isMobileLayout()) closeMobileDrawers(); });
+
+  let resizeTimer;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => {
+      relocateDrawerPanels();
+      render();
+    }, 120);
+  });
+
+  relocateDrawerPanels();
+  DrawerUI.sync();
+}
+
+function srcLabel(e) {
+  const names = arr(e.sources_seen).map(s => s.name);
+  const joined = names.join(', ');
+  return joined.length > 22 ? `${names.length} src` : joined;
+}
+
+function renderMobileCard(e, nowMs) {
+  const card = document.createElement('article');
+  card.className = 'event-card' + (e.my_network_match ? ' network' : '');
+  card.dataset.eventId = getEventStableId(e);
+  const link = eventLink(e);
+  const tte = timeToEvent(e, nowMs);
+  const title = link
+    ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(e.title)}</a>`
+    : esc(e.title);
+  const score = (e.for_you_score || 0) >= 80 ? `<span class="score-badge">${e.for_you_score}</span>` : '';
+  const artists = arr(e.artists).length
+    ? `<div class="card-sub">${arr(e.artists).slice(0, 6).map(a => `<span class="clickable-artist" data-artist="${esc(a)}">${esc(a)}</span>`).join(', ')}</div>`
+    : '';
+  const promoter = e.promoter
+    ? `<div class="card-sub">by <span class="clickable-promoter" data-promoter="${esc(e.promoter)}">${esc(e.promoter)}</span></div>`
+    : '';
+  const venue = esc(e.venue || (e.is_tba_location ? 'TBA' : ''));
+  const city = esc(e.region || e.city || '');
+  card.innerHTML =
+    `<div class="card-meta"><div class="card-date">${dateCell(e)}</div>${tte ? `<div class="card-countdown">${esc(tte)}</div>` : ''}</div>` +
+    `<div class="card-badges">${badges(e)}${score}</div>` +
+    `<div class="card-title">${title}</div>${artists}${promoter}` +
+    `<div class="card-venue"><span data-venue-intel="${esc(e.venue || e.region || '')}">${venue}</span>${city ? ` · ${city}` : ''}</div>` +
+    (arr(e.genres).length ? `<div class="card-row">${esc(arr(e.genres).slice(0, 4).join(', '))}</div>` : '') +
+    (e.price || e.age ? `<div class="card-row">${esc([e.price, e.age].filter(Boolean).join(' · '))}</div>` : '') +
+    `<div class="card-src">${esc(srcLabel(e))}</div>` +
+    `<div class="card-actions">${actionButtons(e, true)}</div>`;
+  return card;
+}
+
+function renderMobileCards(list, nowMs) {
+  const host = $('#event-cards');
+  if (!host) return;
+  const frag = document.createDocumentFragment();
+  for (const e of list) frag.appendChild(renderMobileCard(e, nowMs));
+  host.replaceChildren(frag);
+}
+
+function renderTableRows(list, nowMs) {
+  const rows = $('#rows');
+  if (!rows) return;
+  const frag = document.createDocumentFragment();
+  for (const e of list) {
+    const tr = document.createElement('tr');
+    tr.dataset.eventId = getEventStableId(e);
+    if (e.my_network_match) tr.classList.add('network-row');
+    const link = eventLink(e);
+    const srcNames = arr(e.sources_seen).map(s => s.name).join(', ');
+    const title = link
+      ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(e.title)}</a>`
+      : `<span>${esc(e.title)}</span>`;
+    const score = (e.for_you_score || 0) >= 80 ? `<span class="score-badge">${e.for_you_score}</span>` : '';
+    const tte = timeToEvent(e, nowMs);
+    tr.innerHTML =
+      `<td>${dateCell(e)}${tte ? `<div class="tte">${tte}</div>` : ''}</td>` +
+      `<td class="ev"><div class="t">${badges(e)}${score}${title}</div>` +
+        (arr(e.artists).length ? `<div class="a">${arr(e.artists).slice(0, 6).map(a => `<span class="clickable-artist" data-artist="${esc(a)}">${esc(a)}</span>`).join(', ')}</div>` : '') +
+        (e.promoter ? `<div class="a">by <span class="clickable-promoter" data-promoter="${esc(e.promoter)}">${esc(e.promoter)}</span></div>` : '') + `</td>` +
+      `<td class="venue"><span data-venue-intel="${esc(e.venue || e.region || '')}">${esc(e.venue || (e.is_tba_location ? 'TBA' : ''))}</span></td>` +
+      `<td class="region">${esc(e.region)}</td>` +
+      `<td class="genres">${esc(arr(e.genres).slice(0, 4).join(', '))}</td>` +
+      `<td class="pa">${esc([e.price, e.age].filter(Boolean).join(' · '))}</td>` +
+      `<td class="src" title="${esc(srcNames)}">${esc(srcNames.length > 18 ? arr(e.sources_seen).length + ' src' : srcNames)}</td>` +
+      `<td class="acts">${legacyActionButtons(e)}</td>`;
+    frag.appendChild(tr);
+  }
+  rows.replaceChildren(frag);
 }
 
 function timeToEvent(e, nowMs) {
@@ -734,34 +862,14 @@ function timeToEvent(e, nowMs) {
 
 function render() {
   const list = sortEvents(EVENTS.filter(matches));
-  const rows = $('#rows');
-  const frag = document.createDocumentFragment();
   const nowMs = Date.now();
-  for (const e of list) {
-    const tr = document.createElement('tr');
-    tr.dataset.eventId = getEventStableId(e);
-    if (e.my_network_match) tr.classList.add('network-row');
-    const link = eventLink(e);
-    const srcNames = arr(e.sources_seen).map(s => s.name).join(', ');
-    const title = link
-      ? `<a href="${esc(link)}" target="_blank" rel="noopener noreferrer">${esc(e.title)}</a>`
-      : `<span>${esc(e.title)}</span>`;
-    const score = (e.for_you_score || 0) >= 80 ? `<span class="score-badge">${e.for_you_score}</span>` : '';
-    const tte = timeToEvent(e, nowMs);
-    tr.innerHTML =
-      `<td>${dateCell(e)}${tte ? `<div class="tte">${tte}</div>` : ''}</td>` +
-      `<td class="ev"><div class="t">${badges(e)}${score}${title}</div>` +
-        (arr(e.artists).length ? `<div class="a">${arr(e.artists).slice(0, 6).map(a => `<span class="clickable-artist" data-artist="${esc(a)}">${esc(a)}</span>`).join(', ')}</div>` : '') +
-        (e.promoter ? `<div class="a">by <span class="clickable-promoter" data-promoter="${esc(e.promoter)}">${esc(e.promoter)}</span></div>` : '') + `</td>` +
-      `<td class="venue"><span data-venue-intel="${esc(e.venue || e.region || '')}">${esc(e.venue || (e.is_tba_location ? 'TBA' : ''))}</span></td>` +
-      `<td class="region">${esc(e.region)}</td>` +
-      `<td class="genres">${esc(arr(e.genres).slice(0, 4).join(', '))}</td>` +
-      `<td class="pa">${esc([e.price, e.age].filter(Boolean).join(' · '))}</td>` +
-      `<td class="src" title="${esc(srcNames)}">${esc(srcNames.length > 18 ? arr(e.sources_seen).length + ' src' : srcNames)}</td>` +
-      `<td class="acts">${isMobileLayout() ? actionButtons(e) : legacyActionButtons(e)}</td>`;
-    frag.appendChild(tr);
+  if (isMobileLayout()) {
+    renderMobileCards(list, nowMs);
+    $('#rows')?.replaceChildren();
+  } else {
+    renderTableRows(list, nowMs);
+    $('#event-cards')?.replaceChildren();
   }
-  rows.replaceChildren(frag);
   $('#stat-shown').textContent = list.length;
   syncMobileStats();
   $('#foot-summary').textContent = `${list.length} shown · ${EVENTS.filter(e => e.date).length} dated · ${EVENTS.filter(e => (e.underground_score || 0) >= 7).length} underground · ${EVENTS.filter(e => e.is_manual).length} manual · ${EVENTS.filter(isNew).length} new since last visit`;
@@ -821,9 +929,9 @@ function wire() {
   $$('th[data-sk]').forEach(th => th.onclick = () => { const m = { date: 'soon', title: 'soon', venue: 'venue', region: 'soon' }[th.dataset.sk] || 'soon'; STATE.sort = m; $('#sort').value = m; render(); });
   $('#btn-scene').onclick = toggleScenePanel;
   $('#btn-venues').onclick = toggleVenuePanel;
-  // event delegation for row action icons + artist/promoter clicks
-  $('#rows').addEventListener('click', (e) => {
-    const t = e.target.closest('[data-save],[data-going],[data-attend],[data-log],[data-share],[data-venue-intel],[data-hide],[data-cal],[data-artist],[data-promoter]') || e.target;
+  function handleEventAction(e) {
+    const t = e.target.closest('[data-save],[data-going],[data-attend],[data-log],[data-share],[data-venue-intel],[data-hide],[data-cal],[data-artist],[data-promoter]');
+    if (!t) return;
     if (t.dataset.save) { toggle(SAVED, t.dataset.save, 'saved'); render(); }
     else if (t.dataset.going) { toggle(GOING, t.dataset.going, 'radar:going'); render(); }
     else if (t.dataset.attend) { markAttended(t.dataset.attend); }
@@ -834,7 +942,9 @@ function wire() {
     else if (t.dataset.cal) { const ev = EVENTS.find(x => x.id === t.dataset.cal); if (ev) exportICS([ev]); }
     else if (t.dataset.artist) { showArtistTooltip(t.dataset.artist, t); }
     else if (t.dataset.promoter) { showPromoterPanel(t.dataset.promoter); }
-  });
+  }
+  $('#rows')?.addEventListener('click', handleEventAction);
+  $('#event-cards')?.addEventListener('click', handleEventAction);
   document.addEventListener('click', (e) => {
     const t = e.target;
     if (!t.closest('.artist-tooltip') && !t.dataset.artist) {

@@ -8,7 +8,9 @@
     "dev": "node collector/serve.js",
     "build": "node collector/collect.js",
     "validate": "node collector/validate.js",
-    "venues:unmapped": "node collector/unmapped-venues.js"
+    "venues:unmapped": "node collector/unmapped-venues.js",
+    "start:local": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/start-local.ps1",
+    "phone": "powershell.exe -NoProfile -Command \"Start-Process 'http://localhost:8787/phone.html'\""
   },
   "dependencies": {
     "cheerio": "^1.0.0",

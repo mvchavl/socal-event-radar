@@ -1,0 +1,47 @@
+name: Scheduled data refresh
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh-data:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+
+      - name: Restore scene_graph.json
+        if: ${{ env.SCENE_GRAPH_JSON != '' }}
+        run: echo "$SCENE_GRAPH_JSON" > data/scene_graph.json
+        env:
+          SCENE_GRAPH_JSON: ${{ secrets.SCENE_GRAPH_JSON }}
+
+      - run: npm run collect
+        env:
+          TM_API_KEY: ${{ secrets.TM_API_KEY }}
+          SEATGEEK_CLIENT_ID: ${{ secrets.SEATGEEK_CLIENT_ID }}
+          BIT_APP_ID: ${{ secrets.BIT_APP_ID }}
+
+      - name: Commit updated data if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add public/events.json public/sources.json public/last_updated.json \
+                  public/cooccurrence.json public/scene_intel.json public/tonight.html \
+                  public/venues.json
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "chore: scheduled data refresh $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push
+          fi

@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <title>SoCal Event Radar</title>
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=20260615b">
+<link rel="stylesheet" href="style.css?v=20260617a">
 </head>
 <body>
 <header>
@@ -29,7 +29,11 @@
     <button class="btn" id="btn-venues">Venues</button>
     <button class="btn" id="btn-theme">Light/Dark</button>
     <button class="btn" id="btn-share-tonight">Share Tonight</button>
+    <button class="btn" id="btn-weekend">Weekend Digest</button>
+    <button class="btn" id="btn-show-log">My Show Log</button>
+    <button class="btn" id="btn-release">Release Finder</button>
     <button class="btn" id="btn-export">Export .ics</button>
+    <a class="btn" href="phone.html">Phone setup</a>
   </div>
   <div class="controls">
     <input type="search" id="q" placeholder="search title / artist / venue / promoter / genre…">
@@ -116,6 +120,62 @@
   <div id="venue-list"></div>
 </section>
 
+<section id="weekend-panel" class="intel-panel" hidden>
+  <div class="intel-head">
+    <b>Weekend Digest</b>
+    <span style="flex:1"></span>
+    <button class="btn" id="digest-generate">Generate Weekend Digest</button>
+    <button class="btn" id="digest-copy">Copy Digest</button>
+    <span class="stat" id="digest-status"></span>
+  </div>
+  <textarea id="digest-output" class="intel-output" readonly></textarea>
+</section>
+
+<section id="showlog-panel" class="intel-panel" hidden>
+  <div class="intel-head">
+    <b>My Show Log</b>
+    <span class="stat" id="showlog-stats"></span>
+  </div>
+  <div id="showlog-list"></div>
+</section>
+
+<section id="log-editor-panel" class="intel-panel" hidden>
+  <div class="intel-head">
+    <b id="log-event-title">Log show</b>
+    <span style="flex:1"></span>
+    <button class="btn" id="log-here">I'm here</button>
+    <button class="btn" id="log-save">Save log</button>
+    <button class="btn" id="log-close">Close</button>
+    <span class="stat" id="log-status"></span>
+  </div>
+  <div class="log-grid">
+    <label>vibe<select id="log-vibe"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+    <label>crowd<select id="log-crowd"><option value="">-</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select></label>
+    <label>worth it<select id="log-worth"><option value="yes">yes</option><option value="no">no</option></select></label>
+    <label class="log-note">note<input id="log-note" placeholder="one-line memory"></label>
+  </div>
+</section>
+
+<section id="venue-intel-panel" class="intel-panel" hidden>
+  <div class="intel-head">
+    <b id="venue-intel-title">Venue Intel</b>
+    <span style="flex:1"></span>
+    <button class="btn" id="venue-intel-close">Close</button>
+  </div>
+  <div id="venue-intel-body"></div>
+</section>
+
+<section id="release-panel" class="intel-panel" hidden>
+  <div class="intel-head">
+    <b>Release Target Finder</b>
+    <input id="release-date" type="date">
+    <input id="release-keyword" placeholder="genre / vibe">
+    <input id="release-region" placeholder="region">
+    <button class="btn" id="release-run">Find</button>
+  </div>
+  <div id="release-output"></div>
+</section>
+
 <div id="promoter-panel" class="promoter-panel" hidden>
   <div class="promoter-header">
     <b id="promoter-name"></b>
@@ -160,6 +220,6 @@
   </div>
 </footer>
 
-<script src="app.js?v=20260615b"></script>
+<script src="app.js?v=20260617a"></script>
 </body>
 </html>

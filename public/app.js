@@ -6,11 +6,13 @@ const LS = {
   get: (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
   set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
 };
+const SHOW_LOG_KEY = 'radar:show_logs';
 
 let EVENTS = [], REMOTE_EVENTS = [], SOURCES = [], META = {}, COOCCURRENCE = {}, SCENE_INTEL = {};
 let SAVED = new Set(LS.get('saved', [])), HIDDEN = new Set(LS.get('hidden', []));
 let WATCHLIST = new Set(LS.get('radar:watchlist', []));
 let GOING = new Set(LS.get('radar:going', []));
+let SHOW_LOGS = loadShowLogs(), ACTIVE_LOG_EVENT_ID = '';
 const LAST_VISIT = LS.get('lastVisit', 0);
 const STATE = { q: '', range: '', from: '', to: '', region: '', genre: '', source: '', sort: 'soon', flags: new Set(), age: '', categories: new Set() };
 const SOCAL_BOUNDS = { minLat: 32.35, maxLat: 35.45, minLng: -120.05, maxLng: -116.55 };
@@ -47,6 +49,7 @@ function rebuildEvents() {
   const byId = new Map();
   for (const ev of [...REMOTE_EVENTS, ...manual]) byId.set(ev.id, ev);
   EVENTS = [...byId.values()];
+  annotateEvents();
 }
 
 function loadManualEvents() {
@@ -324,6 +327,44 @@ function parseHour(t) {
   return h;
 }
 
+function annotateEvents() {
+  EVENTS.forEach(e => {
+    e.stable_id = getEventStableId(e);
+    e.underground_score = computeUndergroundScore(e);
+    e.is_underground = !!e.is_underground || e.underground_score >= 7;
+  });
+}
+
+function getEventStableId(e) {
+  return e.id || slug([e.title, e.date, e.venue || e.region].filter(Boolean).join('-')) || 'event';
+}
+
+function computeUndergroundScore(e) {
+  const sourceNames = arr(e.sources_seen).map(s => s.name || '').concat([e.source_name || '']).join(' ').toLowerCase();
+  const blob = `${e.title || ''} ${e.venue || ''} ${e.region || ''} ${e.promoter || ''} ${arr(e.genres).join(' ')} ${arr(e.categories).join(' ')} ${e.price || ''} ${e.description || ''}`.toLowerCase();
+  let score = 4.2;
+
+  if (e.is_manual || /manual|instagram|discord|sms|friend|flyer/.test(sourceNames)) score += 2.1;
+  if (/resident advisor|\bra\b|19hz|r\/aves|dice|posh|shotgun/.test(sourceNames)) score += 1.1;
+  if (/ticketmaster|axs|livenation|seatgeek/.test(sourceNames)) score -= 1.2;
+
+  if (/\b(warehouse|tba|secret|underground|afters|afterhours|late night|address sent|address day|rsvp|dtla warehouse)\b/.test(blob)) score += 1.8;
+  if (e.is_afterhours) score += 1.1;
+  if (e.is_tba_location) score += 1.1;
+  if (e.is_free_rsvp || /\b(free|rsvp|no cover|\$0)\b/.test(blob)) score += 0.5;
+  if (/\$([7-9]\d|\d{3,})/.test(blob)) score -= 0.8;
+
+  if (/\b(hard techno|techno|electro|industrial|ebm|darkwave|experimental|jungle|dnb|drum and bass|acid|trance|club)\b/.test(blob)) score += 1.3;
+  if (/\b(pop|comedy|sports|arena|stadium|festival|fair|awards|viewing party)\b/.test(blob)) score -= 0.9;
+  if (e.is_festival) score -= 0.7;
+
+  return Math.max(1, Math.min(10, Math.round(score * 10) / 10));
+}
+
+function undergroundLabel(e) {
+  return `UG ${Math.round((e.underground_score || computeUndergroundScore(e)) * 10) / 10}`;
+}
+
 async function boot() {
   try {
     [REMOTE_EVENTS, SOURCES, META, COOCCURRENCE, SCENE_INTEL] = await Promise.all([
@@ -359,7 +400,7 @@ function updateTonightStats() {
   const today = localDateString();
   const tonightCount = EVENTS.filter(e => e.date === today).length;
   const networkCount = EVENTS.filter(e => e.my_network_match).length;
-  const ugCount = EVENTS.filter(e => e.is_underground).length;
+  const ugCount = EVENTS.filter(e => (e.underground_score || 0) >= 7).length;
   $('#stat-tonight').textContent = tonightCount;
   $('#stat-network').textContent = networkCount;
   $('#stat-ug').textContent = ugCount;
@@ -459,6 +500,7 @@ function matches(e) {
     else if (f === 'saved') { if (!SAVED.has(e.id)) return false; }
     else if (f === 'watched') { if (!isWatchedEvent(e)) return false; }
     else if (f === 'going') { if (!GOING.has(e.id)) return false; }
+    else if (f === 'is_underground') { if ((e.underground_score || 0) < 7) return false; }
     else if (!e[f]) return false;
   }
   if (STATE.range === 'tonight' && !isTonight(e)) return false;
@@ -506,9 +548,12 @@ function sortEvents(list) {
 }
 
 function forYouScore(e) {
-  if (e.for_you_score != null) return e.for_you_score;
+  let score = Number(e.for_you_score) || 0;
+  const ugBoost = Math.max(0, (e.underground_score || 0) - 6) * 2;
+  const logBoost = showLogAffinityBoost(e);
+  if (e.for_you_score != null) return score + ugBoost + logBoost;
   const blob = `${e.title || ''} ${e.venue || ''} ${e.promoter || ''} ${arr(e.artists).join(' ')} ${arr(e.genres).join(' ')} ${arr(e.categories).join(' ')} ${e.description || ''}`.toLowerCase();
-  let score = 0;
+  score += ugBoost;
   if (e.is_underground) score += 45;
   if (e.is_afterhours) score += 35;
   if (e.is_tba_location || /\b(tba|warehouse|secret|undisclosed|dtla warehouse)\b/.test(blob)) score += 30;
@@ -524,6 +569,7 @@ function forYouScore(e) {
   for (const [re, points] of boosts) if (re.test(blob)) score += points;
   if (e.confidence === 'high') score += 4;
   if (isNew(e)) score += 3;
+  score += logBoost;
   return score;
 }
 
@@ -532,7 +578,8 @@ function badges(e) {
   if (isNew(e)) h += '<span class="badge b-new">new</span>';
   if (e.is_manual) h += '<span class="badge b-manual">manual</span>';
   if (e.needs_review) h += '<span class="badge b-review">needs review</span>';
-  if (e.is_underground) h += '<span class="badge b-ug">ug</span>';
+  h += `<span class="badge b-ug">${esc(undergroundLabel(e))}</span>`;
+  if (SHOW_LOGS[getEventStableId(e)]) h += '<span class="badge b-log">logged</span>';
   if (e.is_afterhours) h += '<span class="badge b-aft">afters</span>';
   if (e.is_festival) h += '<span class="badge b-fest">fest</span>';
   if (e.is_free_rsvp) h += '<span class="badge b-free">free</span>';
@@ -572,6 +619,7 @@ function render() {
   const nowMs = Date.now();
   for (const e of list) {
     const tr = document.createElement('tr');
+    tr.dataset.eventId = getEventStableId(e);
     if (e.my_network_match) tr.classList.add('network-row');
     const link = eventLink(e);
     const srcNames = arr(e.sources_seen).map(s => s.name).join(', ');
@@ -585,7 +633,7 @@ function render() {
       `<td class="ev"><div class="t">${badges(e)}${score}${title}</div>` +
         (arr(e.artists).length ? `<div class="a">${arr(e.artists).slice(0, 6).map(a => `<span class="clickable-artist" data-artist="${esc(a)}">${esc(a)}</span>`).join(', ')}</div>` : '') +
         (e.promoter ? `<div class="a">by <span class="clickable-promoter" data-promoter="${esc(e.promoter)}">${esc(e.promoter)}</span></div>` : '') + `</td>` +
-      `<td class="venue">${esc(e.venue || (e.is_tba_location ? 'TBA' : ''))}</td>` +
+      `<td class="venue"><span data-venue-intel="${esc(e.venue || e.region || '')}">${esc(e.venue || (e.is_tba_location ? 'TBA' : ''))}</span></td>` +
       `<td class="region">${esc(e.region)}</td>` +
       `<td class="genres">${esc(arr(e.genres).slice(0, 4).join(', '))}</td>` +
       `<td class="pa">${esc([e.price, e.age].filter(Boolean).join(' · '))}</td>` +
@@ -595,11 +643,14 @@ function render() {
         `<span class="attended-btn${HISTORY.some(h=>h.id===e.id) ? ' done' : ''}" data-attend="${e.id}" title="mark attended">✓</span>` +
         `<span data-cal="${e.id}" title="add to calendar">⤓</span>` +
         `<span data-hide="${e.id}" title="hide">✕</span></td>`;
+    tr.querySelector('.acts')?.insertAdjacentHTML('beforeend',
+      `<span data-log="${getEventStableId(e)}" title="log show">log</span>` +
+      `<span data-share="${getEventStableId(e)}" title="copy share text">share</span>`);
     frag.appendChild(tr);
   }
   rows.replaceChildren(frag);
   $('#stat-shown').textContent = list.length;
-  $('#foot-summary').textContent = `${list.length} shown · ${EVENTS.filter(e => e.date).length} dated · ${EVENTS.filter(e => e.is_underground).length} underground · ${EVENTS.filter(e => e.is_manual).length} manual · ${EVENTS.filter(isNew).length} new since last visit`;
+  $('#foot-summary').textContent = `${list.length} shown · ${EVENTS.filter(e => e.date).length} dated · ${EVENTS.filter(e => (e.underground_score || 0) >= 7).length} underground · ${EVENTS.filter(e => e.is_manual).length} manual · ${EVENTS.filter(isNew).length} new since last visit`;
   $('#hidden-count').textContent = HIDDEN.size ? `${HIDDEN.size} hidden ·` : '';
   if (mapOpen) drawMap(list);
   renderWatchlistDigest();
@@ -629,9 +680,19 @@ function wire() {
   $('#btn-map').onclick = toggleMap;
   $('#btn-manual').onclick = toggleManualPanel;
   $('#btn-history').onclick = toggleHistoryPanel;
+  $('#btn-weekend').onclick = toggleWeekendPanel;
+  $('#btn-show-log').onclick = toggleShowLogPanel;
+  $('#btn-release').onclick = toggleReleasePanel;
   $('#history-export').onclick = exportHistoryCSV;
   $('#btn-share-tonight').onclick = shareTonight;
   $('#btn-export').onclick = () => exportICS(render());
+  $('#digest-generate').onclick = () => { $('#digest-output').value = generateWeekendDigest(EVENTS); $('#digest-status').textContent = 'generated'; };
+  $('#digest-copy').onclick = () => copyText($('#digest-output').value || generateWeekendDigest(EVENTS), $('#digest-output'), $('#digest-status'));
+  $('#log-here').onclick = markArrivedHere;
+  $('#log-save').onclick = saveActiveShowLog;
+  $('#log-close').onclick = () => { $('#log-editor-panel').hidden = true; };
+  $('#venue-intel-close').onclick = () => { $('#venue-intel-panel').hidden = true; };
+  $('#release-run').onclick = renderReleaseTarget;
   $('#manual-parse').onclick = parseManualPreview;
   $('#manual-save').onclick = saveManualPreview;
   $('#manual-copy').onclick = copyManualJSON;
@@ -652,6 +713,9 @@ function wire() {
     if (t.dataset.save) { toggle(SAVED, t.dataset.save, 'saved'); render(); }
     else if (t.dataset.going) { toggle(GOING, t.dataset.going, 'radar:going'); render(); }
     else if (t.dataset.attend) { markAttended(t.dataset.attend); }
+    else if (t.dataset.log) { openShowLogEditor(t.dataset.log); }
+    else if (t.dataset.share) { shareEventText(t.dataset.share); }
+    else if (t.dataset.venueIntel) { showVenueIntelPanel(t.dataset.venueIntel); }
     else if (t.dataset.hide) { HIDDEN.add(t.dataset.hide); LS.set('hidden', [...HIDDEN]); render(); }
     else if (t.dataset.cal) { const ev = EVENTS.find(x => x.id === t.dataset.cal); if (ev) exportICS([ev]); }
     else if (t.dataset.artist) { showArtistTooltip(t.dataset.artist, t); }
@@ -684,38 +748,6 @@ function toggleManualPanel() {
   if (open) $('#manual-input').focus();
 }
 
-async function parseWithAI(rawText) {
-  const key = localStorage.getItem('radar:anthropic_key');
-  if (!key) return null;
-  try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-6',
-        max_tokens: 1000,
-        system: 'You are an event detail extractor for the LA underground electronic music scene.\nExtract event details from pasted flyer text, Instagram captions, Discord messages, SMS drops, or Partiful links.\nReturn ONLY valid JSON, no markdown, no explanation.\nFor uncertain fields, use null. Never guess dates. If no year is clear, assume 2026.\nFor "needs_review", set true if date, venue, or title is uncertain.',
-        messages: [{
-          role: 'user',
-          content: `Extract event details from this text and return JSON:\n\n${rawText}\n\nReturn exactly this shape:\n{\n  "title": "event name or null",\n  "date": "YYYY-MM-DD or null",\n  "time_start": "11pm or null",\n  "time_end": "6am or null",\n  "venue": "venue name or null",\n  "city": "city or null",\n  "price": "$20 or Free or RSVP or null",\n  "age_restriction": "21+ or 18+ or all ages or null",\n  "genres": ["genre1", "genre2"],\n  "artists": ["artist1", "artist2"],\n  "promoter": "promoter name or null",\n  "source_url": "https://... or null",\n  "needs_review": true\n}`
-        }]
-      })
-    });
-    if (!response.ok) throw new Error('API error ' + response.status);
-    const data = await response.json();
-    const text = data.content?.[0]?.text || '';
-    return JSON.parse(text.replace(/```json|```/g, '').trim());
-  } catch (err) {
-    console.warn('AI parse failed, falling back to regex:', err);
-    return null;
-  }
-}
-
 function checkNetworkMatch(ev) {
   const collectives = ["americanrecycling","stereochrome","crushed_mag","mattermind records","eurohead la","eurohead","extra small","the hellp","ldl","lights down low","dguci","daw","tunedin ucla","catacomb","snla","airheads","pretty but wicked","silk road","lan","startnowla","cd presents"];
   const handles = ["americanrecycling","stereochrome","crushh","wesley","n5316n","nelsonfive316","samsclub.wav","samswavclub","sonni"];
@@ -729,36 +761,14 @@ async function parseManualPreview() {
   const text = $('#manual-input').value;
   if (!text.trim()) return;
   setManualStatus('parsing…');
-  let parseMethod = 'regex';
-  const aiResult = await parseWithAI(text);
-  if (aiResult) {
-    parseMethod = 'AI';
-    MANUAL_PREVIEW = normalizeManualEvent({
-      title: aiResult.title,
-      date: aiResult.date,
-      start_time: aiResult.time_start,
-      end_time: aiResult.time_end,
-      venue: aiResult.venue,
-      city: aiResult.city,
-      price: aiResult.price,
-      age: aiResult.age_restriction,
-      genres: arr(aiResult.genres),
-      artists: arr(aiResult.artists),
-      promoter: aiResult.promoter,
-      source_url: aiResult.source_url,
-      needs_review: aiResult.needs_review,
-      description: text.slice(0, 600),
-    });
-  } else {
-    MANUAL_PREVIEW = parseManualText(text);
-  }
+  MANUAL_PREVIEW = parseManualText(text);
   if (checkNetworkMatch(MANUAL_PREVIEW)) {
     MANUAL_PREVIEW.my_network_match = true;
   }
   fillManualFields(MANUAL_PREVIEW);
   const reviewNote = MANUAL_PREVIEW.needs_review ? ' · needs review' : '';
   const networkNote = MANUAL_PREVIEW.my_network_match ? ' · 🔗 in network' : '';
-  setManualStatus(`${parseMethod} parsed${reviewNote}${networkNote}`);
+  setManualStatus(`parsed${reviewNote}${networkNote}`);
 }
 
 function fillManualFields(ev) {
@@ -970,8 +980,416 @@ async function shareTonight() {
   }
 }
 
+/* ---- local scene intelligence ---- */
+function eventByStableId(id) {
+  return EVENTS.find(e => getEventStableId(e) === id || e.id === id);
+}
+
+function dayLabel(iso) {
+  if (!iso) return 'undated';
+  const d = new Date(iso + 'T12:00');
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function weekendBounds(base = new Date()) {
+  const day = base.getDay();
+  const fri = addDays(base, (5 - day + 7) % 7);
+  const start = (day === 5 || day === 6 || day === 0) ? base : fri;
+  const end = day === 0 ? base : addDays(fri, 2);
+  return { from: localDateString(start), to: localDateString(end) };
+}
+
+function eventVibes(e) {
+  const tags = [];
+  if ((e.underground_score || 0) >= 7) tags.push('underground');
+  if (e.is_afterhours) tags.push('afters');
+  if (e.is_tba_location) tags.push('TBA/warehouse');
+  if (e.is_free_rsvp) tags.push('free');
+  if (e.is_manual) tags.push('manual');
+  for (const g of arr(e.genres).slice(0, 4)) tags.push(g);
+  return [...new Set(tags.filter(Boolean))];
+}
+
+function digestScore(e) {
+  return forYouScore(e)
+    + (e.underground_score || 0) * 5
+    + (e.is_manual ? 10 : 0)
+    + (e.is_afterhours ? 8 : 0)
+    + (e.is_tba_location ? 8 : 0)
+    + (SAVED.has(e.id) ? 10 : 0)
+    + (GOING.has(e.id) ? 12 : 0);
+}
+
+function generateWeekendDigest(allEvents) {
+  const { from, to } = weekendBounds();
+  const events = allEvents
+    .filter(e => e.date && e.date >= from && e.date <= to)
+    .sort((a, b) => digestScore(b) - digestScore(a) || (a.date || '').localeCompare(b.date || '') || (a.start_time || '').localeCompare(b.start_time || ''));
+  const lines = [
+    'SOCAL EVENT RADAR',
+    `Weekend digest: ${dayLabel(from)} - ${dayLabel(to)}`,
+    `${events.length} events, ${events.filter(e => (e.underground_score || 0) >= 7).length} underground, ${events.filter(e => e.is_free_rsvp).length} free`,
+    '',
+  ];
+  if (!events.length) {
+    lines.push('No dated weekend events in the current dataset yet.');
+    return lines.join('\n');
+  }
+  for (const iso of [...new Set(events.map(e => e.date))]) {
+    const dayEvents = events.filter(e => e.date === iso).slice(0, 10);
+    lines.push(dayLabel(iso).toUpperCase());
+    dayEvents.forEach((e, i) => {
+      const where = [e.venue || (e.is_tba_location ? 'TBA' : ''), e.region].filter(Boolean).join(', ');
+      const time = e.start_time ? `${e.start_time} - ` : '';
+      lines.push(`${i + 1}. ${time}${e.title}${where ? ' @ ' + where : ''} (${undergroundLabel(e)}/10)`);
+      const vibes = eventVibes(e).join(', ');
+      if (vibes) lines.push(`   vibe: ${vibes}`);
+      const link = eventLink(e);
+      if (link) lines.push(`   link: ${link}`);
+    });
+    lines.push('');
+  }
+  lines.push('Generated locally by SoCal Event Radar.');
+  return lines.join('\n').trim();
+}
+
+function toggleWeekendPanel() {
+  const panel = $('#weekend-panel');
+  const open = panel.hidden;
+  panel.hidden = !open;
+  $('#btn-weekend').classList.toggle('on', open);
+  if (open && !$('#digest-output').value) {
+    $('#digest-output').value = generateWeekendDigest(EVENTS);
+    $('#digest-status').textContent = 'generated';
+  }
+}
+
+async function copyText(text, fallbackEl, statusEl) {
+  if (!text) return false;
+  try {
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+    else throw new Error('clipboard unavailable');
+    if (statusEl) statusEl.textContent = 'copied';
+    flashNote('copied');
+    return true;
+  } catch {
+    if (fallbackEl && typeof fallbackEl.select === 'function') {
+      fallbackEl.focus();
+      fallbackEl.select();
+      try {
+        document.execCommand('copy');
+        if (statusEl) statusEl.textContent = 'copied';
+        flashNote('copied');
+        return true;
+      } catch {}
+    }
+    prompt('Copy this text:', text);
+    if (statusEl) statusEl.textContent = 'copy manually';
+    return false;
+  }
+}
+
+function flashNote(msg) {
+  const note = $('#hidden-note');
+  if (!note) return;
+  note.textContent = msg;
+  note.style.display = 'block';
+  clearTimeout(flashNote.timer);
+  flashNote.timer = setTimeout(() => { note.style.display = 'none'; }, 2400);
+}
+
+function generateShareText(e) {
+  const where = [e.venue || (e.is_tba_location ? 'TBA' : ''), e.region].filter(Boolean).join(', ');
+  const lines = [
+    e.title || 'Untitled event',
+    [dayLabel(e.date), e.start_time].filter(Boolean).join(' '),
+    where,
+  ].filter(Boolean);
+  const vibes = eventVibes(e);
+  if (vibes.length) lines.push(`vibe: ${vibes.join(', ')}`);
+  if (e.price || e.age) lines.push([e.price, e.age].filter(Boolean).join(' / '));
+  lines.push(`underground score: ${(e.underground_score || 0).toFixed(1)}/10`);
+  const link = eventLink(e);
+  if (link) lines.push(link);
+  return lines.join('\n');
+}
+
+function shareEventText(id) {
+  const ev = eventByStableId(id);
+  if (!ev) return;
+  copyText(generateShareText(ev), null, $('#hidden-note'));
+}
+
+function loadShowLogs() {
+  const logs = LS.get(SHOW_LOG_KEY, {});
+  return logs && typeof logs === 'object' && !Array.isArray(logs) ? logs : {};
+}
+
+function saveShowLog(eventId, log) {
+  SHOW_LOGS[eventId] = log;
+  LS.set(SHOW_LOG_KEY, SHOW_LOGS);
+}
+
+function showLogAffinityBoost(e) {
+  const logs = Object.values(SHOW_LOGS || {});
+  if (!logs.length) return 0;
+  const eGenres = new Set(arr(e.genres).map(g => g.toLowerCase()));
+  const venue = clean(e.venue).toLowerCase();
+  const promoter = clean(e.promoter).toLowerCase();
+  let boost = 0;
+  for (const log of logs) {
+    const liked = Number(log.vibe) >= 4 || log.worth_it === 'yes';
+    const disliked = Number(log.vibe) > 0 && Number(log.vibe) <= 2 || log.worth_it === 'no';
+    let sim = 0;
+    if (venue && venue === clean(log.venue).toLowerCase()) sim += 2.5;
+    if (promoter && promoter === clean(log.promoter).toLowerCase()) sim += 2;
+    const overlap = arr(log.genres).filter(g => eGenres.has(String(g).toLowerCase())).length;
+    sim += Math.min(3, overlap);
+    if (!sim) continue;
+    if (liked) boost += sim * 1.4;
+    if (disliked) boost -= sim;
+  }
+  return Math.max(-10, Math.min(14, boost));
+}
+
+function openShowLogEditor(id) {
+  const ev = eventByStableId(id);
+  if (!ev) return;
+  ACTIVE_LOG_EVENT_ID = getEventStableId(ev);
+  const old = SHOW_LOGS[ACTIVE_LOG_EVENT_ID] || {};
+  $('#log-event-title').textContent = `Log: ${ev.title || 'event'}`;
+  $('#log-vibe').value = old.vibe || '';
+  $('#log-crowd').value = old.crowd || '';
+  $('#log-worth').value = old.worth_it || 'yes';
+  $('#log-note').value = old.note || '';
+  $('#log-status').textContent = old.updated_at ? 'editing saved log' : '';
+  $('#log-editor-panel').hidden = false;
+}
+
+function showLogPayload(id, extra = {}) {
+  const ev = eventByStableId(id);
+  return {
+    stable_id: id,
+    event_id: ev?.id || '',
+    title: ev?.title || '',
+    date: ev?.date || '',
+    venue: ev?.venue || '',
+    city: ev?.city || ev?.region || '',
+    promoter: ev?.promoter || '',
+    genres: arr(ev?.genres),
+    ...extra,
+    updated_at: new Date().toISOString(),
+  };
+}
+
+function markArrivedHere() {
+  if (!ACTIVE_LOG_EVENT_ID) return;
+  const old = SHOW_LOGS[ACTIVE_LOG_EVENT_ID] || {};
+  saveShowLog(ACTIVE_LOG_EVENT_ID, showLogPayload(ACTIVE_LOG_EVENT_ID, { ...old, arrived_at: new Date().toISOString() }));
+  $('#log-status').textContent = 'arrival saved';
+  renderShowLogPanel();
+  render();
+}
+
+function saveActiveShowLog() {
+  if (!ACTIVE_LOG_EVENT_ID) return;
+  const old = SHOW_LOGS[ACTIVE_LOG_EVENT_ID] || {};
+  saveShowLog(ACTIVE_LOG_EVENT_ID, showLogPayload(ACTIVE_LOG_EVENT_ID, {
+    ...old,
+    vibe: $('#log-vibe').value,
+    crowd: $('#log-crowd').value,
+    worth_it: $('#log-worth').value,
+    note: clean($('#log-note').value),
+  }));
+  $('#log-status').textContent = 'saved';
+  renderShowLogPanel();
+  render();
+}
+
+function toggleShowLogPanel() {
+  const panel = $('#showlog-panel');
+  const open = panel.hidden;
+  panel.hidden = !open;
+  $('#btn-show-log').classList.toggle('on', open);
+  if (open) renderShowLogPanel();
+}
+
+function renderShowLogPanel() {
+  const list = $('#showlog-list');
+  if (!list) return;
+  const logs = Object.values(SHOW_LOGS || {}).sort((a, b) => (b.updated_at || b.date || '').localeCompare(a.updated_at || a.date || ''));
+  $('#showlog-stats').textContent = `${logs.length} logged`;
+  if (!logs.length) {
+    list.innerHTML = '<div class="intel-mini">Click log on any event row to save a post-show note.</div>';
+    return;
+  }
+  list.innerHTML = '<div class="intel-list">' + logs.map(log => {
+    const meta = [log.date, log.venue, log.city].filter(Boolean).join(' - ');
+    const ratings = [`vibe ${log.vibe || '-'}`, `crowd ${log.crowd || '-'}`, `worth ${log.worth_it || '-'}`].join(' / ');
+    return `<div class="intel-row"><b>${esc(log.title || 'Untitled event')}</b><div class="intel-mini">${esc(meta)}</div><div>${esc(ratings)}</div>${log.note ? `<div class="intel-mini">${esc(log.note)}</div>` : ''}</div>`;
+  }).join('') + '</div>';
+}
+
+function priceNumber(price) {
+  const s = clean(price).toLowerCase();
+  if (!s) return null;
+  if (/\b(free|no cover|\$0)\b/.test(s)) return 0;
+  const m = s.match(/\$?\s*(\d+(?:\.\d{1,2})?)/);
+  return m ? Number(m[1]) : null;
+}
+
+function topCounts(values, limit = 5) {
+  const counts = new Map();
+  values.map(clean).filter(Boolean).forEach(v => counts.set(v, (counts.get(v) || 0) + 1));
+  return Array.from(counts.entries())
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, limit);
+}
+
+function getVenueIntel(name) {
+  const key = clean(name).toLowerCase();
+  let matches = EVENTS.filter(e => clean(e.venue || e.region).toLowerCase() === key);
+  if (!matches.length && key) matches = EVENTS.filter(e => clean(e.venue || '').toLowerCase().includes(key));
+  const today = localDateString();
+  const upcoming = matches.filter(e => e.date && e.date >= today).sort((a, b) => a.date.localeCompare(b.date) || (a.start_time || '').localeCompare(b.start_time || ''));
+  const prices = matches.map(e => priceNumber(e.price)).filter(n => n != null);
+  const avgPrice = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : null;
+  const avgUg = matches.length ? matches.reduce((sum, e) => sum + (e.underground_score || 0), 0) / matches.length : 0;
+  return {
+    matches,
+    upcoming,
+    avgPrice,
+    avgUg,
+    mapped: matches.some(hasCoords),
+    genres: topCounts(matches.flatMap(e => arr(e.genres)), 5),
+    promoters: topCounts(matches.map(e => e.promoter), 5),
+    days: topCounts(matches.map(e => e.date ? new Date(e.date + 'T12:00').toLocaleDateString('en-US', { weekday: 'short' }) : ''), 5),
+  };
+}
+
+function showVenueIntelPanel(name) {
+  const panel = $('#venue-intel-panel');
+  const body = $('#venue-intel-body');
+  const intel = getVenueIntel(name);
+  $('#venue-intel-title').textContent = `Venue Intel: ${name || 'TBA'}`;
+  if (!intel.matches.length) {
+    body.innerHTML = '<div class="intel-mini">No matching local venue history yet.</div>';
+    panel.hidden = false;
+    return;
+  }
+  const avgPrice = intel.avgPrice == null ? 'unknown' : (intel.avgPrice === 0 ? 'free' : `$${Math.round(intel.avgPrice)}`);
+  const upcoming = intel.upcoming.slice(0, 8).map(e =>
+    `<div class="intel-row">${esc(e.date || '')} ${esc(e.start_time || '')} - <b>${esc(e.title)}</b><div class="intel-mini">${esc(eventVibes(e).join(', '))}</div></div>`
+  ).join('');
+  body.innerHTML =
+    `<div class="intel-mini">${intel.matches.length} total events - ${intel.upcoming.length} upcoming - avg ${undergroundLabel({ underground_score: intel.avgUg })}/10 - avg cover ${avgPrice} - ${intel.mapped ? 'mapped' : 'unmapped'}</div>` +
+    `<div class="intel-mini">genres: ${esc(intel.genres.map(([k, v]) => `${k} (${v})`).join(', ') || 'unknown')}</div>` +
+    `<div class="intel-mini">promoters: ${esc(intel.promoters.map(([k, v]) => `${k} (${v})`).join(', ') || 'unknown')}</div>` +
+    `<div class="intel-mini">busy days: ${esc(intel.days.map(([k, v]) => `${k} (${v})`).join(', ') || 'unknown')}</div>` +
+    `<div class="intel-list">${upcoming || '<div class="intel-row">No upcoming events at this venue.</div>'}</div>`;
+  panel.hidden = false;
+}
+
+function sceneBlob(e) {
+  return `${e.title || ''} ${e.venue || ''} ${e.region || ''} ${e.promoter || ''} ${arr(e.artists).join(' ')} ${arr(e.genres).join(' ')} ${arr(e.categories).join(' ')} ${e.description || ''}`.toLowerCase();
+}
+
+function relatedArtists(term) {
+  const lower = term.toLowerCase();
+  const key = Object.keys(COOCCURRENCE || {}).find(k => k.toLowerCase() === lower);
+  if (!key) return [];
+  return Object.entries(COOCCURRENCE[key]).sort((a, b) => b[1] - a[1]).slice(0, 10);
+}
+
+function renderSceneSearchResult(term) {
+  const el = $('#scene-result');
+  if (!term) {
+    el.innerHTML = '<div class="intel-mini">Search an artist, promoter, venue, genre, or vibe for local scene intel.</div>';
+    return;
+  }
+  const lower = term.toLowerCase();
+  const rows = EVENTS.filter(e => sceneBlob(e).includes(lower));
+  const upcoming = rows.filter(e => e.date && e.date >= localDateString()).sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8);
+  const related = relatedArtists(term);
+  if (!rows.length && !related.length) {
+    el.innerHTML = `<div class="intel-mini">No local matches for ${esc(term)} yet.</div>`;
+    return;
+  }
+  const genres = topCounts(rows.flatMap(e => arr(e.genres)), 6).map(([k, v]) => `${k} (${v})`).join(', ');
+  const venues = topCounts(rows.map(e => e.venue || e.region), 6).map(([k, v]) => `${k} (${v})`).join(', ');
+  const promoters = topCounts(rows.map(e => e.promoter), 6).map(([k, v]) => `${k} (${v})`).join(', ');
+  const upHtml = upcoming.map(e => `<div class="intel-row">${esc(e.date || '')} - <b>${esc(e.title)}</b> @ ${esc(e.venue || 'TBA')} <span class="badge b-ug">${esc(undergroundLabel(e))}</span></div>`).join('');
+  el.innerHTML =
+    `<div class="intel-mini">${rows.length} matching events - ${upcoming.length} upcoming</div>` +
+    `<div class="intel-mini">genres: ${esc(genres || 'unknown')}</div>` +
+    `<div class="intel-mini">venues: ${esc(venues || 'unknown')}</div>` +
+    `<div class="intel-mini">promoters: ${esc(promoters || 'unknown')}</div>` +
+    `<div class="intel-mini">related: ${esc(related.map(([k, v]) => `${k} (${v})`).join(', ') || 'none yet')}</div>` +
+    `<div class="intel-list">${upHtml || '<div class="intel-row">No upcoming matches.</div>'}</div>`;
+}
+
+function toggleReleasePanel() {
+  const panel = $('#release-panel');
+  const open = panel.hidden;
+  panel.hidden = !open;
+  $('#btn-release').classList.toggle('on', open);
+  if (open) {
+    if (!$('#release-date').value) $('#release-date').value = weekendBounds().from;
+    renderReleaseTarget();
+  }
+}
+
+function releaseWindowRows(targetIso) {
+  const rows = [];
+  const base = new Date(targetIso + 'T12:00');
+  for (let i = -7; i <= 7; i++) {
+    const iso = localDateString(addDays(base, i));
+    const dayEvents = EVENTS.filter(e => e.date === iso);
+    rows.push({
+      iso,
+      count: dayEvents.length,
+      underground: dayEvents.filter(e => (e.underground_score || 0) >= 7).length,
+      free: dayEvents.filter(e => e.is_free_rsvp).length,
+    });
+  }
+  return rows;
+}
+
+function dateDistanceDays(iso, targetIso) {
+  return Math.abs(new Date(iso + 'T12:00') - new Date(targetIso + 'T12:00')) / 86400000;
+}
+
+function renderReleaseTarget() {
+  const out = $('#release-output');
+  const date = $('#release-date').value || weekendBounds().from;
+  const keywords = splitList($('#release-keyword').value).map(s => s.toLowerCase());
+  const region = clean($('#release-region').value).toLowerCase();
+  const base = new Date(date + 'T12:00');
+  const from = localDateString(addDays(base, -7));
+  const to = localDateString(addDays(base, 7));
+  const competitors = EVENTS.filter(e => {
+    if (!e.date || e.date < from || e.date > to) return false;
+    const blob = sceneBlob(e);
+    if (region && !blob.includes(region)) return false;
+    if (keywords.length && !keywords.some(k => blob.includes(k))) return false;
+    return true;
+  }).sort((a, b) => dateDistanceDays(a.date, date) - dateDistanceDays(b.date, date) || digestScore(b) - digestScore(a));
+  const best = releaseWindowRows(date)
+    .filter(r => r.iso >= localDateString())
+    .sort((a, b) => a.count - b.count || a.underground - b.underground || a.iso.localeCompare(b.iso))
+    .slice(0, 3);
+  const bestText = best.map(r => `${dayLabel(r.iso)}: ${r.count} events, ${r.underground} underground`).join(' | ');
+  const rows = competitors.slice(0, 12).map(e =>
+    `<div class="intel-row">${esc(dayLabel(e.date))} ${esc(e.start_time || '')} - <b>${esc(e.title)}</b> @ ${esc(e.venue || 'TBA')} <span class="badge b-ug">${esc(undergroundLabel(e))}</span></div>`
+  ).join('');
+  out.innerHTML =
+    `<div class="intel-mini">Light competition days: ${esc(bestText || 'unknown')}</div>` +
+    `<div class="intel-mini">${competitors.length} nearby events in the +/- 7 day window${keywords.length ? ' matching ' + esc(keywords.join(', ')) : ''}.</div>` +
+    `<div class="intel-list">${rows || '<div class="intel-row">No nearby matching events.</div>'}</div>`;
+}
+
 /* ---- lazy Leaflet map ---- */
-let mapOpen = false, map = null, layer = null, leafletLoading = null;
+let mapOpen = false, map = null, layer = null, leafletLoading = null, mapViewTimer = null, mapDrawSeq = 0;
 function currentList() { return sortEvents(EVENTS.filter(matches)); }
 function toggleMap() {
   mapOpen = !mapOpen;
@@ -979,7 +1397,7 @@ function toggleMap() {
   $('#btn-map').classList.toggle('on', mapOpen);
   if (mapOpen) {
     drawMap(currentList());
-    ensureLeaflet().then(() => drawMap(currentList()));
+    ensureLeaflet().then(() => { if (mapOpen) drawMap(currentList()); });
   }
 }
 function ensureLeaflet() {
@@ -998,9 +1416,15 @@ function drawMap(list) {
   const pts = list.filter(hasCoords);
   const mapEl = $('#map');
   if (!pts.length) {
-    if (map) { map.remove(); map = null; layer = null; }
-    mapEl.dataset.mode = 'fallback';
-    mapEl.innerHTML = '<div class="map-empty">No mapped events in this view.</div>';
+    clearMapLayer();
+    cancelMapViewUpdate();
+    mapEl.dataset.mapped = '0';
+    if (map) {
+      mapEl.dataset.renderer = 'leaflet';
+    } else {
+      mapEl.dataset.mode = 'fallback';
+      mapEl.innerHTML = '<div class="map-empty">No mapped events in this view.</div>';
+    }
     return;
   }
   if (!window.L) { drawFallbackMap(pts); return; }
@@ -1011,8 +1435,8 @@ function drawMap(list) {
   mapEl.dataset.mapped = String(pts.length);
   mapEl.dataset.renderer = 'leaflet';
   if (!map) { map = L.map('map').setView([34.05, -118.24], 10); L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap', maxZoom: 18 }).addTo(map); }
-  if (layer) layer.remove();
-  layer = L.layerGroup().addTo(map);
+  if (!layer) layer = L.layerGroup().addTo(map);
+  else layer.clearLayers();
   const bounds = [];
   pts.forEach(e => {
     const lat = Number(e.lat), lng = Number(e.lng);
@@ -1022,15 +1446,11 @@ function drawMap(list) {
     layer.addLayer(m);
     bounds.push([lat, lng]);
   });
-  setTimeout(() => {
-    map.invalidateSize();
-    if (bounds.length) map.fitBounds(bounds, { padding: [18, 18], maxZoom: 12 });
-  }, 50);
+  scheduleMapViewUpdate(bounds);
 }
 
 function drawFallbackMap(pts) {
   const mapEl = $('#map');
-  if (map) { map.remove(); map = null; layer = null; }
   mapEl.dataset.mode = 'fallback';
   mapEl.dataset.mapped = String(pts.length);
   mapEl.dataset.renderer = 'fallback';
@@ -1043,6 +1463,30 @@ function drawFallbackMap(pts) {
     return `<span class="map-dot${cls}" style="left:${x.toFixed(2)}%;top:${y.toFixed(2)}%" title="${esc(e.title)} — ${esc(e.venue || e.region || '')}"></span>`;
   }).join('');
   mapEl.innerHTML = `<div class="map-fallback" role="img" aria-label="${pts.length} mapped events"><div class="map-grid"></div>${dots}<div class="map-count">${pts.length} mapped events</div></div>`;
+}
+
+function clearMapLayer() {
+  if (layer && typeof layer.clearLayers === 'function') layer.clearLayers();
+}
+
+function cancelMapViewUpdate() {
+  if (mapViewTimer) clearTimeout(mapViewTimer);
+  mapViewTimer = null;
+  mapDrawSeq += 1;
+}
+
+function scheduleMapViewUpdate(bounds) {
+  cancelMapViewUpdate();
+  const seq = mapDrawSeq;
+  mapViewTimer = setTimeout(() => {
+    if (seq !== mapDrawSeq || !map || !mapOpen) return;
+    try {
+      map.invalidateSize();
+      if (bounds.length) map.fitBounds(bounds, { padding: [18, 18], maxZoom: 12 });
+    } catch {
+      // Leaflet can leave an animation frame behind while filters redraw the map.
+    }
+  }, 50);
 }
 
 function pointBounds(pts) {
@@ -1203,12 +1647,22 @@ function toggleScenePanel() {
 function renderScenePanel() {
   const container = $('#scene-collectives');
   const data = SCENE_INTEL.collectives || [];
-  if (!data.length) { container.innerHTML = '<div style="color:var(--mut);padding:8px">No collective data. Run npm run collect first.</div>'; return; }
+  const search = `<div class="intel-head"><input id="scene-search" placeholder="artist / promoter / venue / genre"><button class="btn" id="scene-find">Search</button><span class="stat">local event memory</span></div><div id="scene-result"></div>`;
+  if (!data.length) {
+    container.innerHTML = search + '<div style="color:var(--mut);padding:8px">No collective data. Run npm run collect first.</div>';
+    $('#scene-find').onclick = () => renderSceneSearchResult($('#scene-search').value.trim());
+    $('#scene-search').onkeydown = (e) => { if (e.key === 'Enter') renderSceneSearchResult(e.target.value.trim()); };
+    renderSceneSearchResult('');
+    return;
+  }
   const rows = data.map(c => {
     const next = c.next_event ? `${c.next_event.date} — ${esc(c.next_event.title).slice(0, 40)}` : '—';
     return `<tr><td><span class="clickable-promoter" data-promoter="${esc(c.name)}">${esc(c.name)}</span></td><td>${c.events_this_month}</td><td style="color:var(--mut)">${next}</td><td style="color:var(--mut)">${esc(c.vibe)}</td></tr>`;
   }).join('');
-  container.innerHTML = `<table><thead><tr><th>Collective</th><th>This Month</th><th>Next Event</th><th>Vibe</th></tr></thead><tbody>${rows}</tbody></table>`;
+  container.innerHTML = search + `<table><thead><tr><th>Collective</th><th>This Month</th><th>Next Event</th><th>Vibe</th></tr></thead><tbody>${rows}</tbody></table>`;
+  $('#scene-find').onclick = () => renderSceneSearchResult($('#scene-search').value.trim());
+  $('#scene-search').onkeydown = (e) => { if (e.key === 'Enter') renderSceneSearchResult(e.target.value.trim()); };
+  renderSceneSearchResult('');
 }
 
 /* ---- Phase 5B: Artist Co-occurrence Tooltip ---- */

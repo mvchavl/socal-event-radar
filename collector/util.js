@@ -87,6 +87,35 @@ async function httpPost(url, body, { timeout = 20000, headers = {} } = {}) {
 
 const norm = (s) => (s || '').toString().replace(/\s+/g, ' ').trim();
 
+const SCRAPE_TAIL = /(?:Save this event|Share this event|Get tickets|See more|More info|RSVP|Eventbrite)[:\s].*$/gi;
+const REPEATED_LOC = /(\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)?\s*·\s*){2,}/g;
+
+function cleanScraped(s) {
+  let t = norm(s || '');
+  if (!t) return '';
+  t = t.replace(REPEATED_LOC, '');
+  t = t.replace(/\bCannes\s*·\s*/gi, '');
+  t = t.replace(/(?:Save this event|Share this event)[\s\S]*/gi, '');
+  t = t.replace(SCRAPE_TAIL, '');
+  t = t.replace(/^Follow(?=[A-Z])/i, '');
+  t = t.replace(/\bFollow(?:\s+this\s+organizer)?[:\s].*$/gi, '');
+  t = t.replace(/FreePromoted.*$/gi, '');
+  t = t.replace(/\bPromoted\b.*$/gi, '');
+  t = t.replace(/\d+\s*followers\b.*$/gi, '');
+  const parts = t.split(/\s*·\s*/).map((p) => p.trim()).filter(Boolean);
+  if (parts.length > 1) {
+    const seen = new Set();
+    const unique = parts.filter((p) => {
+      const k = p.toLowerCase();
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+    if (unique.length && unique.length < parts.length) t = unique.join(' · ');
+  }
+  return norm(t);
+}
+
 function slug(s) {
   return norm(s).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 }
@@ -241,15 +270,15 @@ function inferRegion(text) {
 function makeEvent(partial, sourceName) {
   const nowISO = new Date().toISOString();
   const e = {
-    id: '', title: norm(partial.title), artists: partial.artists || [],
+    id: '', title: cleanScraped(partial.title), artists: partial.artists || [],
     date: partial.date || null, start_time: norm(partial.start_time), end_time: norm(partial.end_time),
-    venue: norm(partial.venue), address: norm(partial.address), city: norm(partial.city),
+    venue: cleanScraped(partial.venue), address: norm(partial.address), city: norm(partial.city),
     region: partial.region || inferRegion(`${partial.region || ''} ${partial.venue || ''} ${partial.city || ''}`),
     lat: partial.lat ?? null, lng: partial.lng ?? null,
     genres: [...new Set((partial.genres || []).map((g) => norm(g).toLowerCase()).filter(Boolean))],
     vibe_tags: partial.vibe_tags || [],
     price: norm(partial.price), age: norm(partial.age), promoter: norm(partial.promoter),
-    description: norm(partial.description),
+    description: cleanScraped(partial.description),
     is_festival: !!partial.is_festival, is_underground: false, is_afterhours: false,
     is_free_rsvp: false, is_tba_location: false,
     categories: deriveCategories(partial),
@@ -263,4 +292,4 @@ function makeEvent(partial, sourceName) {
   return e;
 }
 
-module.exports = { httpGet, httpPost, norm, slug, eventId, parseDate, parseTime, parseHour, inferRegion, deriveFlags, deriveCategories, makeEvent, dateInTimeZone, formatTimeInTimeZone, LA_TIME_ZONE, UA };
+module.exports = { httpGet, httpPost, norm, cleanScraped, slug, eventId, parseDate, parseTime, parseHour, inferRegion, deriveFlags, deriveCategories, makeEvent, dateInTimeZone, formatTimeInTimeZone, LA_TIME_ZONE, UA };

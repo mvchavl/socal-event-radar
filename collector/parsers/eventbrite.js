@@ -1,7 +1,7 @@
 // collector/parsers/eventbrite.js
 // Tier C best-effort for general events: pop-ups, workshops, networking, art, community, Silver Lake/Arts District, free RSVPs, etc.
 const cheerio = require('cheerio');
-const { httpGet, makeEvent, parseDate, inferRegion, norm } = require('../util');
+const { httpGet, makeEvent, parseDate, inferRegion, norm, cleanScraped } = require('../util');
 
 async function collect() {
   const events = [];
@@ -19,7 +19,7 @@ async function collect() {
 
     $('a[href*="/e/"]').each((i, el) => {
       const $el = $(el);
-      const title = norm($el.text());
+      const title = cleanScraped($el.text());
       if (!title || title.length < 6) return;
 
       const href = $el.attr('href') || '';
@@ -29,8 +29,8 @@ async function collect() {
       const date = parseDate(txt) || parseDate(parent.find('time').first().text());
       if (!date) return;
 
-      let venue = norm(parent.find('[class*="location"], [class*="venue"], .adr').first().text());
-      if (!venue && txt.includes('·')) venue = txt.split('·').pop().trim().slice(0, 80);
+      let venue = cleanScraped(parent.find('[class*="location"], [class*="venue"], .adr').first().text());
+      if (!venue && txt.includes('·')) venue = cleanScraped(txt.split('·').pop().trim().slice(0, 80));
 
       const isFree = /free|no cost|rsvp/i.test(txt);
 

@@ -8,10 +8,37 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <title>SoCal Event Radar</title>
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=20260617a">
+<link rel="stylesheet" href="style.css?v=20260617b">
 </head>
 <body>
 <header>
+  <div class="mobile-sticky" id="mobile-sticky">
+    <div class="mobile-head">
+      <b>SoCal Event Radar</b>
+      <span class="stat mobile-updated" id="stat-updated-m">loading…</span>
+      <button type="button" class="btn mobile-theme" id="btn-theme-m" aria-label="Toggle theme">◐</button>
+    </div>
+    <div class="stat-chips">
+      <span class="stat-chip">events <strong id="stat-count-m">0</strong></span>
+      <span class="stat-chip">shown <strong id="stat-shown-m">0</strong></span>
+      <span class="stat-chip">tonight <strong id="stat-tonight-m">0</strong></span>
+      <span class="stat-chip">ug <strong id="stat-ug-m">0</strong></span>
+    </div>
+    <div class="mobile-drawer-bar">
+      <button type="button" class="mob-drawer-btn" data-drawer="filters" aria-expanded="false">Filters</button>
+      <button type="button" class="mob-drawer-btn" data-drawer="presets" aria-expanded="false">Presets</button>
+      <button type="button" class="mob-drawer-btn" data-drawer="more" aria-expanded="false">More</button>
+    </div>
+    <div class="mobile-actions-scroll" id="mobile-quick-actions"></div>
+  </div>
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <div id="drawer-more" class="mobile-drawer-panel" hidden>
+    <div class="mobile-drawer-head">
+      <b>More</b>
+      <button type="button" class="btn drawer-close" data-close-drawer aria-label="Close">✕</button>
+    </div>
+    <div class="mobile-more-actions" id="mobile-more-actions"></div>
+  </div>
   <div class="bar1">
     <b>SoCal Event Radar</b>
     <span class="stat" id="stat-updated">loading…</span>
@@ -35,7 +62,7 @@
     <button class="btn" id="btn-export">Export .ics</button>
     <a class="btn" href="phone.html">Phone setup</a>
   </div>
-  <div class="controls">
+  <div class="controls" id="filters-drawer">
     <input type="search" id="q" placeholder="search title / artist / venue / promoter / genre…">
     <span class="chip" data-range="tonight">Tonight</span>
     <span class="chip" data-range="weekend">This Weekend</span>
@@ -220,6 +247,6 @@
   </div>
 </footer>
 
-<script src="app.js?v=20260617a"></script>
+<script src="app.js?v=20260617b"></script>
 </body>
 </html>

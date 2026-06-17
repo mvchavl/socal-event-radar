@@ -5,7 +5,7 @@
     "type": "html",
     "region": "SoCal",
     "note": "Backbone. Static HTML table.",
-    "last_checked": "2026-06-17T19:37:12.046Z",
+    "last_checked": "2026-06-17T20:11:30.629Z",
     "status": "ok",
     "count": 503,
     "active": true
@@ -16,7 +16,7 @@
     "type": "graphql",
     "region": "LA",
     "note": "Underground/techno; auto-captures most collectives.",
-    "last_checked": "2026-06-17T19:37:12.853Z",
+    "last_checked": "2026-06-17T20:11:31.156Z",
     "status": "ok",
     "count": 300,
     "active": true
@@ -27,10 +27,9 @@
     "type": "api",
     "region": "SoCal",
     "note": "Free key. + TicketWeb/Universe/FrontGate.",
-    "last_checked": "2026-06-17T19:37:13.908Z",
-    "status": "needs_key",
-    "count": 0,
-    "error": "TM_API_KEY not set",
+    "last_checked": "2026-06-17T20:11:32.785Z",
+    "status": "ok",
+    "count": 168,
     "active": true
   },
   {
@@ -39,7 +38,7 @@
     "type": "api",
     "region": "SoCal",
     "note": "Free key. Concerts by city.",
-    "last_checked": "2026-06-17T19:37:13.912Z",
+    "last_checked": "2026-06-17T20:11:33.973Z",
     "status": "needs_key",
     "count": 0,
     "error": "SEATGEEK_CLIENT_ID not set",
@@ -51,7 +50,7 @@
     "type": "api",
     "region": "SoCal",
     "note": "Free key. Artist watchlist tours.",
-    "last_checked": "2026-06-17T19:37:13.912Z",
+    "last_checked": "2026-06-17T20:11:33.974Z",
     "status": "needs_key",
     "count": 0,
     "error": "BIT_APP_ID not set",
@@ -63,7 +62,7 @@
     "type": "html",
     "region": "SoCal",
     "note": "Festival calendars (best-effort).",
-    "last_checked": "2026-06-17T19:37:13.913Z",
+    "last_checked": "2026-06-17T20:11:33.975Z",
     "status": "ok",
     "count": 25,
     "active": true
@@ -74,9 +73,9 @@
     "type": "rss",
     "region": "LA",
     "note": "Rave New World + feeds (intel).",
-    "last_checked": "2026-06-17T19:37:14.655Z",
-    "status": "empty",
-    "count": 0,
+    "last_checked": "2026-06-17T20:11:34.440Z",
+    "status": "ok",
+    "count": 15,
     "active": true
   },
   {
@@ -85,7 +84,7 @@
     "type": "spa",
     "region": "SoCal",
     "note": "Exchange/Academy/Avalon. 403s datacenter IPs.",
-    "last_checked": "2026-06-17T19:37:14.702Z",
+    "last_checked": "2026-06-17T20:11:34.699Z",
     "status": "degraded",
     "count": 0,
     "error": "tixr blocked (403) — best-effort source",
@@ -97,7 +96,7 @@
     "type": "rss",
     "region": "SoCal",
     "note": "Reddit blocks datacenter IPs; runs from residential/CI.",
-    "last_checked": "2026-06-17T19:37:15.969Z",
+    "last_checked": "2026-06-17T20:11:35.278Z",
     "status": "degraded",
     "count": 0,
     "error": "reddit blocked (403 from datacenter IPs is expected)",
@@ -109,7 +108,7 @@
     "type": "manual",
     "region": "SoCal",
     "note": "Your hand-entered IG/Discord/SMS drops.",
-    "last_checked": "2026-06-17T19:37:16.017Z",
+    "last_checked": "2026-06-17T20:11:35.443Z",
     "status": "ok",
     "count": 1,
     "active": true
@@ -120,7 +119,7 @@
     "type": "html",
     "region": "SoCal",
     "note": "Workshops, pop-ups, networking, art, markets, community, free RSVPs.",
-    "last_checked": "2026-06-17T19:37:16.018Z",
+    "last_checked": "2026-06-17T20:11:35.444Z",
     "status": "ok",
     "count": 83,
     "active": true
@@ -131,9 +130,9 @@
     "type": "html",
     "region": "LA",
     "note": "Tech, startup, creative, professional, social mixers (high signal for career + people).",
-    "last_checked": "2026-06-17T19:37:21.150Z",
-    "status": "ok",
-    "count": 1,
+    "last_checked": "2026-06-17T20:11:36.336Z",
+    "status": "empty",
+    "count": 0,
     "active": true
   },
   {
@@ -142,7 +141,7 @@
     "type": "html",
     "region": "SoCal",
     "note": "LA County Library + LAPL — wholesome, free workshops, talks, community events.",
-    "last_checked": "2026-06-17T19:37:22.449Z",
+    "last_checked": "2026-06-17T20:11:37.571Z",
     "status": "empty",
     "count": 0,
     "active": true
@@ -153,7 +152,7 @@
     "type": "html",
     "region": "SoCal",
     "note": "Public Partiful pages only. Re-checks manual Partiful URLs.",
-    "last_checked": "2026-06-17T19:37:23.334Z",
+    "last_checked": "2026-06-17T20:11:38.092Z",
     "status": "empty",
     "count": 0,
     "active": true
@@ -164,7 +163,7 @@
     "type": "html",
     "region": "SoCal",
     "note": "LA electronic/underground events on DICE.",
-    "last_checked": "2026-06-17T19:37:23.335Z",
+    "last_checked": "2026-06-17T20:11:38.093Z",
     "status": "empty",
     "count": 0,
     "active": true

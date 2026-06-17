@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const yaml = require('js-yaml');
 const { dedupe } = require('./dedupe');
-const { slug, dateInTimeZone } = require('./util');
+const { slug, norm, cleanScraped, dateInTimeZone } = require('./util');
 const { loadSceneGraph, buildScorer } = require('./scoring');
 const { generateTonightHTML } = require('./digest');
 
@@ -286,6 +286,13 @@ async function main() {
   if (festivalMatches) console.log(`  festivals: ${festivalMatches} events matched to known festivals`);
 
   // sort soonest-first (undated/intel last)
+  merged = dedupe(merged.map((ev) => {
+    ev.title = cleanScraped(ev.title) || ev.title;
+    ev.venue = cleanScraped(ev.venue);
+    ev.description = cleanScraped(ev.description);
+    return ev;
+  })).filter((ev) => ev.title && norm(ev.title).length >= 2);
+
   merged.sort((a, b) => {
     if (!a.date && !b.date) return 0;
     if (!a.date) return 1;

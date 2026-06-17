@@ -388,8 +388,10 @@ async function boot() {
   renderSources();
   initCategoryChips();
   initPresets();
+  initMobileUI();
   wire();
   render();
+  syncMobileStats();
   LS.set('lastVisit', Date.now()); // mark visit AFTER computing "new"
 }
 
@@ -439,12 +441,10 @@ function initCategoryChips() {
 }
 
 function initPresets() {
-  // add preset buttons to the top bar or after controls
   let presetBar = $('#preset-bar');
   if (!presetBar) {
     presetBar = document.createElement('div');
     presetBar.id = 'preset-bar';
-    presetBar.style.cssText = 'padding:4px 12px 2px; font-size:11px; display:flex; gap:4px; flex-wrap:wrap; align-items:center; border-bottom:1px solid #222;';
     const header = document.querySelector('header');
     if (header) header.appendChild(presetBar);
   }
@@ -594,6 +594,126 @@ function dateCell(e) {
   return `<span class="date">${dow} <b>${md}</b>${e.start_time ? '<br>' + esc(e.start_time) : ''}</span>`;
 }
 
+function isMobileLayout() {
+  return window.matchMedia('(max-width: 700px)').matches;
+}
+
+function actionButtons(e) {
+  const sid = getEventStableId(e);
+  const attended = HISTORY.some(h => h.id === e.id);
+  return `<div class="event-actions">` +
+    `<button type="button" class="act-btn star${SAVED.has(e.id) ? ' on' : ''}" data-save="${e.id}" aria-label="Save"><span aria-hidden="true">★</span><span class="act-lbl">save</span></button>` +
+    `<button type="button" class="act-btn going${GOING.has(e.id) ? ' on' : ''}" data-going="${e.id}" aria-label="Going"><span aria-hidden="true">▶</span><span class="act-lbl">going</span></button>` +
+    `<button type="button" class="act-btn share" data-share="${sid}" aria-label="Share"><span aria-hidden="true">⤴</span><span class="act-lbl">share</span></button>` +
+    `<button type="button" class="act-btn log" data-log="${sid}" aria-label="Log show"><span aria-hidden="true">✎</span><span class="act-lbl">log</span></button>` +
+    `<button type="button" class="act-btn attend${attended ? ' done' : ''}" data-attend="${e.id}" aria-label="Attended"><span aria-hidden="true">✓</span><span class="act-lbl">went</span></button>` +
+    `<button type="button" class="act-btn cal" data-cal="${e.id}" aria-label="Calendar"><span aria-hidden="true">⤓</span><span class="act-lbl">cal</span></button>` +
+    `<button type="button" class="act-btn hide" data-hide="${e.id}" aria-label="Hide"><span aria-hidden="true">✕</span><span class="act-lbl">hide</span></button>` +
+    `</div>`;
+}
+
+function legacyActionButtons(e) {
+  const sid = getEventStableId(e);
+  return `<span class="star ${SAVED.has(e.id) ? 'on' : ''}" data-save="${e.id}" title="save">★</span>` +
+    `<span class="going-btn${GOING.has(e.id) ? ' on' : ''}" data-going="${e.id}" title="going">▶</span>` +
+    `<span class="attended-btn${HISTORY.some(h => h.id === e.id) ? ' done' : ''}" data-attend="${e.id}" title="mark attended">✓</span>` +
+    `<span data-cal="${e.id}" title="add to calendar">⤓</span>` +
+    `<span data-hide="${e.id}" title="hide">✕</span>` +
+    `<span data-log="${sid}" title="log show">log</span>` +
+    `<span data-share="${sid}" title="copy share text">share</span>`;
+}
+
+function syncMobileStats() {
+  const pairs = [
+    ['stat-updated', 'stat-updated-m'],
+    ['stat-count', 'stat-count-m'],
+    ['stat-shown', 'stat-shown-m'],
+    ['stat-tonight', 'stat-tonight-m'],
+    ['stat-ug', 'stat-ug-m'],
+  ];
+  for (const [src, dst] of pairs) {
+    const s = $(`#${src}`);
+    const d = $(`#${dst}`);
+    if (s && d) d.textContent = s.textContent;
+  }
+}
+
+function closeMobileDrawers() {
+  $$('.mobile-drawer-btn').forEach(b => { b.classList.remove('on'); b.setAttribute('aria-expanded', 'false'); });
+  $('#filters-drawer')?.classList.remove('drawer-open');
+  $('#preset-bar')?.classList.remove('drawer-open');
+  $('#cat-row')?.classList.remove('drawer-open');
+  $('#drawer-more')?.classList.remove('drawer-open');
+  const backdrop = $('#drawer-backdrop');
+  if (backdrop) { backdrop.classList.remove('open'); backdrop.hidden = true; }
+  const more = $('#drawer-more');
+  if (more) more.hidden = true;
+}
+
+function openMobileDrawer(name) {
+  closeMobileDrawers();
+  const btn = $(`.mob-drawer-btn[data-drawer="${name}"]`);
+  if (btn) { btn.classList.add('on'); btn.setAttribute('aria-expanded', 'true'); }
+  const backdrop = $('#drawer-backdrop');
+  if (backdrop) { backdrop.hidden = false; backdrop.classList.add('open'); }
+  if (name === 'filters') {
+    $('#filters-drawer')?.classList.add('drawer-open');
+    $('#cat-row')?.classList.add('drawer-open');
+  } else if (name === 'presets') {
+    $('#preset-bar')?.classList.add('drawer-open');
+  } else if (name === 'more') {
+    const panel = $('#drawer-more');
+    if (panel) { panel.hidden = false; panel.classList.add('drawer-open'); }
+  }
+}
+
+function initMobileUI() {
+  const quickIds = ['btn-map', 'btn-share-tonight', 'btn-export'];
+  const moreIds = ['btn-manual', 'btn-history', 'btn-scene', 'btn-venues', 'btn-weekend', 'btn-show-log', 'btn-release'];
+  const quick = $('#mobile-quick-actions');
+  const more = $('#mobile-more-actions');
+  if (quick) {
+    quick.replaceChildren();
+    for (const id of quickIds) {
+      const src = $(`#${id}`);
+      if (!src) continue;
+      const clone = src.cloneNode(true);
+      clone.id = `${id}-m`;
+      clone.addEventListener('click', (e) => { e.preventDefault(); src.click(); closeMobileDrawers(); });
+      quick.appendChild(clone);
+    }
+  }
+  if (more) {
+    more.replaceChildren();
+    for (const id of moreIds) {
+      const src = $(`#${id}`);
+      if (!src) continue;
+      const clone = src.cloneNode(true);
+      clone.id = `${id}-m`;
+      clone.addEventListener('click', () => { src.click(); closeMobileDrawers(); });
+      more.appendChild(clone);
+    }
+    const phone = document.querySelector('a.btn[href="phone.html"]');
+    if (phone) {
+      const link = phone.cloneNode(true);
+      link.id = 'phone-setup-m';
+      more.appendChild(link);
+    }
+  }
+  $$('.mob-drawer-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.drawer;
+      const isOpen = btn.classList.contains('on');
+      if (isOpen) closeMobileDrawers();
+      else openMobileDrawer(name);
+    });
+  });
+  $('#drawer-backdrop')?.addEventListener('click', closeMobileDrawers);
+  $$('[data-close-drawer]').forEach(btn => btn.addEventListener('click', closeMobileDrawers));
+  $('#btn-theme-m')?.addEventListener('click', toggleTheme);
+  window.addEventListener('resize', () => { if (!isMobileLayout()) closeMobileDrawers(); });
+}
+
 function timeToEvent(e, nowMs) {
   if (!e.date || e.date !== localDateString()) return '';
   if (!e.start_time) return 'today';
@@ -638,18 +758,12 @@ function render() {
       `<td class="genres">${esc(arr(e.genres).slice(0, 4).join(', '))}</td>` +
       `<td class="pa">${esc([e.price, e.age].filter(Boolean).join(' · '))}</td>` +
       `<td class="src" title="${esc(srcNames)}">${esc(srcNames.length > 18 ? arr(e.sources_seen).length + ' src' : srcNames)}</td>` +
-      `<td class="acts"><span class="star ${SAVED.has(e.id) ? 'on' : ''}" data-save="${e.id}" title="save">★</span>` +
-        `<span class="going-btn${GOING.has(e.id) ? ' on' : ''}" data-going="${e.id}" title="going">▶</span>` +
-        `<span class="attended-btn${HISTORY.some(h=>h.id===e.id) ? ' done' : ''}" data-attend="${e.id}" title="mark attended">✓</span>` +
-        `<span data-cal="${e.id}" title="add to calendar">⤓</span>` +
-        `<span data-hide="${e.id}" title="hide">✕</span></td>`;
-    tr.querySelector('.acts')?.insertAdjacentHTML('beforeend',
-      `<span data-log="${getEventStableId(e)}" title="log show">log</span>` +
-      `<span data-share="${getEventStableId(e)}" title="copy share text">share</span>`);
+      `<td class="acts">${isMobileLayout() ? actionButtons(e) : legacyActionButtons(e)}</td>`;
     frag.appendChild(tr);
   }
   rows.replaceChildren(frag);
   $('#stat-shown').textContent = list.length;
+  syncMobileStats();
   $('#foot-summary').textContent = `${list.length} shown · ${EVENTS.filter(e => e.date).length} dated · ${EVENTS.filter(e => (e.underground_score || 0) >= 7).length} underground · ${EVENTS.filter(e => e.is_manual).length} manual · ${EVENTS.filter(isNew).length} new since last visit`;
   $('#hidden-count').textContent = HIDDEN.size ? `${HIDDEN.size} hidden ·` : '';
   if (mapOpen) drawMap(list);
@@ -709,7 +823,7 @@ function wire() {
   $('#btn-venues').onclick = toggleVenuePanel;
   // event delegation for row action icons + artist/promoter clicks
   $('#rows').addEventListener('click', (e) => {
-    const t = e.target;
+    const t = e.target.closest('[data-save],[data-going],[data-attend],[data-log],[data-share],[data-venue-intel],[data-hide],[data-cal],[data-artist],[data-promoter]') || e.target;
     if (t.dataset.save) { toggle(SAVED, t.dataset.save, 'saved'); render(); }
     else if (t.dataset.going) { toggle(GOING, t.dataset.going, 'radar:going'); render(); }
     else if (t.dataset.attend) { markAttended(t.dataset.attend); }

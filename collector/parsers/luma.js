@@ -19,6 +19,7 @@ async function collect() {
     $('a[href*="/"], .event-card, [data-event], article').each((i, el) => {
       const txt = norm($(el).text());
       if (txt.length < 12) return;
+      if (/\b(cannes|paris|london|berlin|nyc|new york)\b/i.test(txt)) return;
 
       const title = norm($(el).find('h1,h2,h3,h4,a').first().text()) || txt.slice(0, 110);
       if (!title || title.length < 5) return;
@@ -28,6 +29,7 @@ async function collect() {
 
       const link = $(el).attr('href') || $(el).find('a').attr('href') || url;
       const venue = norm($(el).find('.location, [class*="loc"]').first().text()) || '';
+      if (/^cannes\s*·?\s*$/i.test(venue)) return;
 
       const ev = makeEvent({
         title,
@@ -38,6 +40,7 @@ async function collect() {
         confidence: 'medium',
       }, 'lu.ma');
 
+      if (!ev.title || ev.title.length < 4) return;
       events.push(ev);
     });
   }

@@ -1,6 +1,6 @@
 // Minimal offline-ish cache. App shell cached; data network-first w/ cache fallback.
-const SHELL = 'radar-shell-v2';
-const ASSET_VERSION = '20260617a';
+const SHELL = 'radar-shell-v4';
+const ASSET_VERSION = '20260618b';
 const SHELL_FILES = ['./index.html', `./app.js?v=${ASSET_VERSION}`, `./style.css?v=${ASSET_VERSION}`, './manifest.webmanifest', './icon.svg'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(SHELL).then(c => c.addAll(SHELL_FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== SHELL).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

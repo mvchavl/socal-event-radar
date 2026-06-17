@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#070c0e">
+<meta name="theme-color" content="#0a1a1f">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <title>SoCal Event Radar</title>
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="stylesheet" href="style.css?v=20260617b">
+<link rel="stylesheet" href="style.css?v=20260618b">
 </head>
 <body>
 <header>
@@ -24,21 +24,14 @@
       <span class="stat-chip">tonight <strong id="stat-tonight-m">0</strong></span>
       <span class="stat-chip">ug <strong id="stat-ug-m">0</strong></span>
     </div>
-    <div class="mobile-drawer-bar">
-      <button type="button" class="mob-drawer-btn" data-drawer="filters" aria-expanded="false">Filters</button>
-      <button type="button" class="mob-drawer-btn" data-drawer="presets" aria-expanded="false">Presets</button>
-      <button type="button" class="mob-drawer-btn" data-drawer="more" aria-expanded="false">More</button>
+    <div class="mobile-drawer-bar" id="mobile-drawer-bar">
+      <button type="button" class="mob-drawer-btn" data-drawer="filters" aria-expanded="false" aria-controls="drawer-filters">Filters</button>
+      <button type="button" class="mob-drawer-btn" data-drawer="presets" aria-expanded="false" aria-controls="drawer-presets">Presets</button>
+      <button type="button" class="mob-drawer-btn" data-drawer="more" aria-expanded="false" aria-controls="drawer-more">More</button>
     </div>
     <div class="mobile-actions-scroll" id="mobile-quick-actions"></div>
   </div>
-  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
-  <div id="drawer-more" class="mobile-drawer-panel" hidden>
-    <div class="mobile-drawer-head">
-      <b>More</b>
-      <button type="button" class="btn drawer-close" data-close-drawer aria-label="Close">✕</button>
-    </div>
-    <div class="mobile-more-actions" id="mobile-more-actions"></div>
-  </div>
+  <div class="desktop-chrome" id="desktop-chrome">
   <div class="bar1">
     <b>SoCal Event Radar</b>
     <span class="stat" id="stat-updated">loading…</span>
@@ -95,7 +88,34 @@
     <span class="chip" data-age="all ages">All ages</span>
     <button class="btn" id="btn-reset">reset</button>
   </div>
+  <div id="header-panels" class="header-panels"></div>
+  </div>
 </header>
+
+<div id="drawer-root" class="drawer-root" aria-hidden="true">
+  <div id="drawer-backdrop" class="drawer-backdrop"></div>
+  <div id="drawer-filters" class="drawer-sheet" role="dialog" aria-modal="true" aria-labelledby="drawer-filters-title" aria-hidden="true">
+    <div class="drawer-sheet-head">
+      <b id="drawer-filters-title">Filters</b>
+      <button type="button" class="btn drawer-close-btn" data-drawer-close aria-label="Close filters">✕</button>
+    </div>
+    <div class="drawer-sheet-body" id="drawer-filters-body"></div>
+  </div>
+  <div id="drawer-presets" class="drawer-sheet" role="dialog" aria-modal="true" aria-labelledby="drawer-presets-title" aria-hidden="true">
+    <div class="drawer-sheet-head">
+      <b id="drawer-presets-title">Presets</b>
+      <button type="button" class="btn drawer-close-btn" data-drawer-close aria-label="Close presets">✕</button>
+    </div>
+    <div class="drawer-sheet-body" id="drawer-presets-body"></div>
+  </div>
+  <div id="drawer-more" class="drawer-sheet" role="dialog" aria-modal="true" aria-labelledby="drawer-more-title" aria-hidden="true">
+    <div class="drawer-sheet-head">
+      <b id="drawer-more-title">More</b>
+      <button type="button" class="btn drawer-close-btn" data-drawer-close aria-label="Close more">✕</button>
+    </div>
+    <div class="drawer-sheet-body mobile-more-actions" id="mobile-more-actions"></div>
+  </div>
+</div>
 
 <section id="manual-panel" class="manual-panel" hidden>
   <div class="manual-inbox">
@@ -218,6 +238,7 @@
 <div class="note" id="hidden-note" style="display:none"></div>
 
 <main>
+  <div id="event-cards" class="event-cards" aria-live="polite"></div>
   <table id="tbl">
     <thead><tr>
       <th data-sk="date">Date / Time</th>
@@ -247,6 +268,6 @@
   </div>
 </footer>
 
-<script src="app.js?v=20260617b"></script>
+<script src="app.js?v=20260618b"></script>
 </body>
 </html>

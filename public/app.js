@@ -599,6 +599,7 @@ function isMobileLayout() {
 
 const DrawerUI = {
   active: null,
+  _scrollY: 0,
 
   toggle(name) {
     if (this.active === name) this.close();
@@ -607,33 +608,47 @@ const DrawerUI = {
 
   open(name) {
     if (!isMobileLayout()) return;
+    if (this.active === name) return;
+    if (!this.active) this._scrollY = window.scrollY;
     this.active = name || null;
     this.sync();
   },
 
   close() {
+    if (!this.active) return;
+    const savedY = this._scrollY;
     this.active = null;
     this.sync();
+    window.scrollTo(0, savedY);
   },
 
   sync() {
     const open = !!this.active;
-    document.body.classList.toggle('mobile-drawer-open', open);
+    const body = document.body;
+    if (open) {
+      body.style.top = `-${this._scrollY}px`;
+      body.classList.add('mobile-drawer-open');
+    } else {
+      body.classList.remove('mobile-drawer-open');
+      body.style.top = '';
+    }
     const root = $('#drawer-root');
     if (root) {
       root.classList.toggle('is-active', open);
-      root.setAttribute('aria-hidden', open ? 'false' : 'true');
+      root.setAttribute('aria-hidden', String(!open));
     }
-    const backdrop = $('#drawer-backdrop');
-    if (backdrop) backdrop.classList.toggle('is-visible', open);
     for (const id of ['filters', 'presets', 'more']) {
       const sheet = $(`#drawer-${id}`);
       const btn = $(`.mob-drawer-btn[data-drawer="${id}"]`);
       const isOpen = this.active === id;
-      sheet?.classList.toggle('is-open', isOpen);
-      sheet?.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-      btn?.classList.toggle('is-active', isOpen);
-      btn?.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      if (sheet) {
+        sheet.classList.toggle('is-open', isOpen);
+        sheet.setAttribute('aria-hidden', String(!isOpen));
+      }
+      if (btn) {
+        btn.classList.toggle('is-active', isOpen);
+        btn.setAttribute('aria-expanded', String(isOpen));
+      }
     }
   },
 };
